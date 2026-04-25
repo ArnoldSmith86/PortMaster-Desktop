@@ -81,11 +81,12 @@
           "source": "ai"
         },
         "steam": {
-          "url": "https://store.steampowered.com/app/499180/Braid_Anniversary_Edition/",
-          "appId": "499180",
+          "url": "https://store.steampowered.com/app/26800/Braid/",
+          "alternateUrls": ["https://store.steampowered.com/app/499180/Braid_Anniversary_Edition/"],
+          "appId": "26800",
           "compatibility": "incompatible",
-          "incompatibleReason": "Steam now only sells Braid Anniversary Edition, which uses a different engine and is not compatible with this port. The original (app 26800) was delisted.",
-          "source": "ai"
+          "incompatibleReason": "Neither Steam version works with this port. The original (app 26800) is Windows-only on Steam. The Anniversary Edition (app 499180) uses a different engine. The port needs the original Linux game from GOG or Humble Bundle.",
+          "source": "metadata"
         },
         "itch": {
           "compatibility": "not_available",

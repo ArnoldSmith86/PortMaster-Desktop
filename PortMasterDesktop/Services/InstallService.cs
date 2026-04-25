@@ -15,7 +15,8 @@ public record PortStoreEntry(
     string? Url,
     string? AppId,
     string Compatibility,
-    string? IncompatibleReason);
+    string? IncompatibleReason,
+    IReadOnlyList<string>? AlternateUrls = null);
 
 /// <summary>
 /// Orchestrates the full installation of a port:
@@ -57,7 +58,7 @@ public class InstallService
             return [];
         return portInst.Stores
             .Select(kvp => new PortStoreEntry(kvp.Key, kvp.Value.Url, kvp.Value.AppId,
-                kvp.Value.Compatibility, kvp.Value.IncompatibleReason))
+                kvp.Value.Compatibility, kvp.Value.IncompatibleReason, kvp.Value.AlternateUrls))
             .ToList();
     }
 
@@ -630,6 +631,9 @@ public class InstallService
 
         [JsonPropertyName("note")]
         public string? Note { get; set; }
+
+        [JsonPropertyName("alternateUrls")]
+        public List<string>? AlternateUrls { get; set; }
 
         [JsonPropertyName("steamDepot")]
         public SteamDepotInfo? SteamDepot { get; set; }

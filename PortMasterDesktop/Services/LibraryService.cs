@@ -124,22 +124,35 @@ public class LibraryService
             // Phase 2: GFI supplementary entries not already checked by Phase 1
             foreach (var entry in gfiEntries)
             {
-                if (string.IsNullOrEmpty(entry.Url)) continue;
-                if (checkedUrls.Contains(entry.Url)) continue;
-                checkedUrls.Add(entry.Url);
                 var storeId = ParseStoreId(entry.StoreKey);
                 if (storeId == null) continue;
-                foreach (var authStore in authStores.Where(s => s.StoreId == storeId))
+
+                // Collect all URLs for this entry (primary + alternates)
+                var urlsToTry = new List<string>();
+                if (!string.IsNullOrEmpty(entry.Url)) urlsToTry.Add(entry.Url);
+                if (entry.AlternateUrls != null)
+                    urlsToTry.AddRange(entry.AlternateUrls.Where(u => !string.IsNullOrEmpty(u)));
+
+                bool foundMatch = false;
+                foreach (var url in urlsToTry)
                 {
-                    var game = await authStore.FindOwnedGameAsync(entry.Url, ct);
-                    if (game != null && owned.All(g => g.Id != game.Id))
+                    if (checkedUrls.Contains(url)) continue;
+                    checkedUrls.Add(url);
+                    if (foundMatch) continue; // still add to checkedUrls, but skip lookup
+
+                    foreach (var authStore in authStores.Where(s => s.StoreId == storeId))
                     {
-                        owned.Add(game);
-                        var matchCompat = GfiCompatToMatchCompat(entry.Compatibility);
-                        bestCompat = BestCompat(bestCompat, matchCompat);
-                        if (matchCompat == StoreMatchCompatibility.Incompatible)
-                            incompatibleReason ??= entry.IncompatibleReason;
-                        break;
+                        var game = await authStore.FindOwnedGameAsync(url, ct);
+                        if (game != null && owned.All(g => g.Id != game.Id))
+                        {
+                            owned.Add(game);
+                            var matchCompat = GfiCompatToMatchCompat(entry.Compatibility);
+                            bestCompat = BestCompat(bestCompat, matchCompat);
+                            if (matchCompat == StoreMatchCompatibility.Incompatible)
+                                incompatibleReason ??= entry.IncompatibleReason;
+                            foundMatch = true;
+                            break;
+                        }
                     }
                 }
             }
