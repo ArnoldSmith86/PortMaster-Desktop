@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=PortMaster Desktop
+GenericName=Game Port Installer
+Comment=Install PortMaster ports from your game library
+Exec=PortMasterDesktop
+Icon=portmasterdesktop
+Terminal=false
+Categories=Game;Utility;
+Keywords=PortMaster;games;ports;handheld;
+MimeType=x-scheme-handler/portmasterdesktop;

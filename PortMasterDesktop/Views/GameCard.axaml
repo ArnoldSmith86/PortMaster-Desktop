@@ -1,0 +1,82 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="using:PortMasterDesktop.Models"
+             xmlns:conv="using:PortMasterDesktop.Converters"
+             xmlns:asyncImageLoader="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+             x:Class="PortMasterDesktop.Views.GameCard"
+             x:DataType="models:GameMatch"
+             Cursor="Hand">
+
+    <!-- Panel stacks two Borders: inner clips content to rounded rect,
+         outer draws the selection stroke on top without being clipped. -->
+    <Panel>
+        <!-- Content layer: clips image+title to rounded rect -->
+        <Border CornerRadius="10" ClipToBounds="True" Background="#1e1e38">
+            <Grid RowDefinitions="*,Auto">
+
+                <!-- Cover image (portrait 2:3) -->
+                <Panel Grid.Row="0" Height="240">
+                    <Image asyncImageLoader:ImageLoader.Source="{Binding DisplayCoverUrl}"
+                           Stretch="Uniform"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"/>
+
+                    <!-- Placeholder when no image -->
+                    <Border Background="#252540"
+                            IsVisible="{Binding DisplayCoverUrl,
+                                Converter={x:Static conv:EmptyStringToBoolConverter.Instance}}">
+                        <TextBlock Text="🎮" FontSize="40"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- FREE badge top-right -->
+                    <Border IsVisible="{Binding IsRtr}"
+                            Background="#2196F3" CornerRadius="4" Padding="5,2"
+                            HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6">
+                        <TextBlock Text="FREE" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                    </Border>
+
+                    <!-- Install state badge bottom-left (hidden when a compat badge replaces it) -->
+                    <Border HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                            IsVisible="{Binding ShowInstallStateBadge}"
+                            Background="{Binding InstallState,
+                                Converter={x:Static conv:InstallStateColorConverter.Instance}}"
+                            CornerRadius="0,4,0,0" Padding="6,3">
+                        <TextBlock Text="{Binding InstallState,
+                                       Converter={x:Static conv:InstallStateLabelConverter.Instance}}"
+                                   FontSize="9" FontWeight="Bold" Foreground="White"/>
+                    </Border>
+
+                    <!-- Wrong store badge — replaces AVAILABLE bottom-left -->
+                    <Border HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                            IsVisible="{Binding ShowIncompatibleBadge}"
+                            Background="#D32F2F" CornerRadius="0,4,0,0" Padding="6,3">
+                        <TextBlock Text="WRONG STORE" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                    </Border>
+
+                    <!-- Unknown compat badge — replaces AVAILABLE bottom-left -->
+                    <Border HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                            IsVisible="{Binding ShowUnknownCompatBadge}"
+                            Background="#F57C00" CornerRadius="0,4,0,0" Padding="6,3">
+                        <TextBlock Text="UNKNOWN COMPAT" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                    </Border>
+                </Panel>
+
+                <!-- Title -->
+                <Border Grid.Row="1" Background="#1a1a30" Padding="8,6">
+                    <TextBlock Text="{Binding DisplayTitle}"
+                               FontSize="12" TextTrimming="CharacterEllipsis"
+                               MaxLines="1" Foreground="#e8e8f4"/>
+                </Border>
+
+            </Grid>
+        </Border>
+
+        <!-- Stroke layer: drawn on top, not clipped, so corners are fully rounded -->
+        <Border CornerRadius="10"
+                BorderBrush="{Binding $parent[UserControl].IsSelected,
+                    Converter={x:Static conv:BoolToBorderBrushConverter.Instance}}"
+                BorderThickness="2"
+                Background="Transparent"/>
+    </Panel>
+</UserControl>

@@ -1,0 +1,240 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PortMasterDesktop.ViewModels"
+        xmlns:views="using:PortMasterDesktop.Views"
+        xmlns:models="using:PortMasterDesktop.Models"
+        xmlns:conv="using:PortMasterDesktop.Converters"
+        x:Class="PortMasterDesktop.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="PortMaster Desktop"
+        Width="1280" Height="800"
+        MinWidth="900" MinHeight="600"
+        Background="#0d0d1a"
+        Icon="avares://PortMasterDesktop/Resources/AppIcon/portmaster.png">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- ═══ TOOLBAR ═══════════════════════════════════════════════════════ -->
+        <Border Grid.Row="0" Background="#12122a" Padding="14,9">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6"
+                            VerticalAlignment="Center">
+                    <Image Source="avares://PortMasterDesktop/Resources/AppIcon/portmaster_toolbar.png"
+                           Width="36" Height="36" VerticalAlignment="Center"/>
+                    <TextBlock Text="PortMaster" FontSize="17" FontWeight="Bold"
+                               Foreground="#e8e8f4" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                            Margin="18,0" VerticalAlignment="Center">
+                    <Button x:Name="FilterAllBtn" Content="All Games"
+                            Classes="filter" Click="OnFilterAll"/>
+                    <Button x:Name="FilterAvailBtn" Content="Available"
+                            Classes="filter active" Click="OnFilterAvail"/>
+                </StackPanel>
+
+                <TextBox Grid.Column="2"
+                         Watermark="Search ports…"
+                         Text="{Binding SearchText}"
+                         Background="#1a1a30"
+                         Foreground="#e8e8f4"
+                         CornerRadius="8"
+                         Margin="0,0,12,0"
+                         VerticalAlignment="Center"/>
+
+                <Button Grid.Column="3" Content="↻" ToolTip.Tip="Refresh catalog"
+                        Classes="icon" Command="{Binding RefreshCommand}" Margin="0,0,6,0"/>
+                <Button Grid.Column="4" Content="⚙" ToolTip.Tip="Settings &amp; Accounts"
+                        Classes="icon" Click="OnSettingsClicked"/>
+            </Grid>
+        </Border>
+
+        <!-- ═══ CONTENT AREA ══════════════════════════════════════════════════ -->
+        <Grid Grid.Row="1">
+
+            <!-- Game grid (shown when not loading and games exist) -->
+            <ScrollViewer IsVisible="{Binding !IsLoading}"
+                          PointerPressed="OnScrollViewerPressed">
+                <ItemsControl ItemsSource="{Binding DisplayedGames}" Margin="8,8,8,0">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="models:GameMatch">
+                            <views:GameCard Width="160" Margin="4"
+                                            PointerPressed="OnGameCardPressed"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!-- Empty state -->
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10"
+                        IsVisible="{Binding IsEmpty}">
+                <TextBlock Text="🎮" FontSize="48" HorizontalAlignment="Center"/>
+                <TextBlock Text="{Binding StatusMessage}" FontSize="16" Foreground="#6a6a8a"
+                           HorizontalAlignment="Center"/>
+                <TextBlock Text="Connect your game stores in Settings to see your library."
+                           FontSize="13" Foreground="#6a6a8a" HorizontalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Loading overlay -->
+            <Border IsVisible="{Binding IsLoading}" Background="#A0000000">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="14">
+                    <ProgressBar IsIndeterminate="True" Width="220" Height="4"/>
+                    <TextBlock Text="{Binding StatusMessage}" Foreground="#e8e8f4"
+                               FontSize="14" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+
+        </Grid>
+
+        <!-- ═══ STATUS BAR (game selected) ═══════════════════════════════════ -->
+        <Border Grid.Row="2" IsVisible="{Binding HasSelectedGame}"
+                Background="#12122a" Padding="14,10">
+            <Grid ColumnDefinitions="*,Auto">
+
+                <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding SelectedGame.DisplayTitle}"
+                               FontSize="15" FontWeight="Bold" Foreground="#e8e8f4"/>
+
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <StackPanel Orientation="Horizontal" Spacing="4"
+                                    IsVisible="{Binding SelectedStoreText,
+                                        Converter={x:Static conv:NotEmptyConverter.Instance}}">
+                            <TextBlock Text="Store:" FontSize="12" Foreground="#6a6a8a"/>
+                            <TextBlock Text="{Binding SelectedStoreText}" FontSize="12"
+                                       FontWeight="Bold" Foreground="#b0b0cc"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="4"
+                                    IsVisible="{Binding SelectedPortSize,
+                                        Converter={x:Static conv:NotEmptyConverter.Instance}}">
+                            <TextBlock Text="Port ZIP:" FontSize="12" Foreground="#6a6a8a"/>
+                            <TextBlock Text="{Binding SelectedPortSize}" FontSize="12"
+                                       FontWeight="Bold" Foreground="#b0b0cc"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="4"
+                                    IsVisible="{Binding SelectedGameSize,
+                                        Converter={x:Static conv:NotEmptyConverter.Instance}}">
+                            <TextBlock Text="Game data:" FontSize="12" Foreground="#6a6a8a"/>
+                            <TextBlock Text="{Binding SelectedGameSize}" FontSize="12"
+                                       FontWeight="Bold" Foreground="#b0b0cc"/>
+                        </StackPanel>
+                        <Border Background="{Binding SelectedGame.InstallState,
+                                    Converter={x:Static conv:InstallStateColorConverter.Instance}}"
+                                CornerRadius="4" Padding="7,2">
+                            <TextBlock Text="{Binding SelectedInstallStateText}"
+                                       FontSize="11" Foreground="White"/>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel IsVisible="{Binding IsInstalling}" Spacing="2">
+                        <ProgressBar Value="{Binding InstallProgress}" Minimum="0" Maximum="1" Height="4"/>
+                        <TextBlock Text="{Binding InstallMessage}"
+                                   FontSize="11" Foreground="#6a6a8a"/>
+                    </StackPanel>
+                    <TextBlock IsVisible="{Binding NoPartitionDetected}"
+                               Text="{Binding PartitionStatus}"
+                               FontSize="11" Foreground="#ff9800"/>
+                    <TextBlock IsVisible="{Binding HasPartitionWarning}"
+                               Text="{Binding PartitionWriteWarning}"
+                               FontSize="11" Foreground="#ff9800"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                            VerticalAlignment="Center">
+                    <Button Content="🔗 Details" Classes="secondary"
+                            Command="{Binding OpenDetailPageCommand}"
+                            IsVisible="{Binding SelectedGame.HasPort}"/>
+                    <Button Content="{Binding InstallButtonLabel}" Classes="primary"
+                            Command="{Binding InstallCommand}"
+                            IsEnabled="{Binding CanInstall}"
+                            IsVisible="{Binding CanInstall}"/>
+                    <Button Content="Installing…" Classes="primary"
+                            IsEnabled="False" IsVisible="{Binding IsInstalling}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ═══ STATUS BAR (no selection) ════════════════════════════════════ -->
+        <Border Grid.Row="2" IsVisible="{Binding !HasSelectedGame}"
+                Background="#12122a" Padding="14,9">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="2" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{Binding PartitionStatus}" FontSize="12"
+                                   VerticalAlignment="Center"
+                                   Foreground="{Binding PartitionStatus,
+                                       Converter={x:Static conv:PartitionStatusColorConverter.Instance}}"/>
+                        <Button Content="↺" Classes="icon"
+                                IsVisible="{Binding NoPartitionDetected}"
+                                Command="{Binding RescanPartitionsCommand}"
+                                ToolTip.Tip="Rescan for SD card"
+                                FontSize="13" Padding="3,1" Width="22" Height="22" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding PartitionWriteWarning}"
+                               FontSize="11" Foreground="#ff9800"
+                               IsVisible="{Binding HasPartitionWarning}"/>
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="{Binding DbStats}" FontSize="12"
+                           VerticalAlignment="Center" Foreground="#6a6a8a"
+                           IsVisible="{Binding DbStats,
+                               Converter={x:Static conv:NotEmptyConverter.Instance}}"/>
+            </Grid>
+        </Border>
+
+    </Grid>
+
+    <Window.Styles>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#6c63ff"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="MinWidth" Value="90"/>
+        </Style>
+        <Style Selector="Button.primary:disabled /template/ ContentPresenter">
+            <Setter Property="Background" Value="#3a3a60"/>
+        </Style>
+        <Style Selector="Button.secondary">
+            <Setter Property="Background" Value="#2a2a4a"/>
+            <Setter Property="Foreground" Value="#b0b0cc"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="BorderBrush" Value="#2d2d52"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Button.icon">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#6a6a8a"/>
+            <Setter Property="FontSize" Value="17"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="7,4"/>
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="34"/>
+        </Style>
+        <Style Selector="Button.filter">
+            <Setter Property="Background" Value="#1e1e38"/>
+            <Setter Property="Foreground" Value="#6a6a8a"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="BorderBrush" Value="#2d2d52"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Button.filter.active">
+            <Setter Property="Background" Value="#6c63ff"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#6c63ff"/>
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="Foreground" Value="#e8e8f4"/>
+        </Style>
+    </Window.Styles>
+</Window>

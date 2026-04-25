@@ -1,0 +1,21 @@
+The next step is getting good information about where to download games and what to do with their data once downloaded. references/PortMaster-New/ports contains all the text   
+  metadata about every port. We can skip "rtr": true games that don't need any third-party downloads but _every other game_ needs reliable machine-readable instructions. You     
+  already started PortMasterDesktop/PortMaster/GameFileInstructions.json but _do not_ consider the current entries final. First step is to get all store links for each game. For 
+   Epic/Steam/GOG/Itch/Amazon/Humble, do a search with different search engines with inurl pattern or similar and the game name. Don't follow the link, just save it.             
+  Cross-reference the game description in the search results with the metadata we have to make sure it's the correct game. For each store, check the description for mentions     
+  that that store version of the game _is compatible_ with the port, _is not compatible_ with the port and if it is not mentioned at all (assume compatible but save it as a      
+  third value). Also check if the metadata mentions requiring a certain version/platform/depot of the game and add that to the metadata file. lastly, for each store, save        
+  machine-readable instructions about extracting downloaded files and what to copy where. Just do a few for now so we can catch early issues. Be critical about yourself.
+
+
+don't search for portmaster details on the web. we have all available metadata. also: if there are store links in the metadata already, you can assume they are correct but more stores are probably missing.
+
+
+actually, do it without web searching first for all of them. for each store url store the source "metadata"/"ai"/"web". we'll make a quick pass without web searching first (feel free to add "ai" entries if you "know" another store      
+  URL). we'll come back to web later.
+
+ALSO NOTE that store links can be anywhere in the PortMaster metadata. NOT ONLY stores:[]..
+
+
+
+Ignore for now (my notes for later): "Ot" is the wrong game. "Install" still doesn't do anything.

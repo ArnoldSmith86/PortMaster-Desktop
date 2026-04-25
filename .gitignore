@@ -1,0 +1,34 @@
+# Build output
+PortMasterDesktop/bin/
+PortMasterDesktop/obj/
+publish/
+AppDir/usr/
+
+# AppImage artifacts
+*.AppImage
+*.zip
+
+# References and bundled tools (too large / not our code)
+references/
+tools/
+
+# IDE / OS
+.idea/
+.vs/
+.vscode/
+*.user
+*.suo
+*.DS_Store
+Thumbs.db
+
+# NuGet
+*.nupkg
+*.snupkg
+
+# Claude Code session data
+.claude/
+
+# Scratch / test screenshots
+chip-fail.png
+gogfail.png
+itch-fail.png
