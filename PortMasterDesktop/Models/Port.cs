@@ -17,10 +17,16 @@ public class Port
     public string Name { get; set; } = "";
 
     [JsonPropertyName("items")]
-    public List<string> Items { get; set; } = [];
+    public List<string>? ItemsMaybeNull { get; set; }
+
+    [JsonIgnore]
+    public List<string> Items => ItemsMaybeNull ?? [];
 
     [JsonPropertyName("items_opt")]
-    public List<string> ItemsOpt { get; set; } = [];
+    public List<string>? ItemsOptMaybeNull { get; set; }
+
+    [JsonIgnore]
+    public List<string> ItemsOpt => ItemsOptMaybeNull ?? [];
 
     [JsonPropertyName("attr")]
     public PortAttr Attr { get; set; } = new();

@@ -68,7 +68,7 @@ public class InstallService
         IProgress<(string message, double fraction)>? progress = null,
         CancellationToken ct = default,
         string? fileSystem = null,
-        IProgress<string>? stepLog = null)
+        Action<string>? stepLog = null)
     {
         await _portMaster.InstallPortAsync(port, portsPath, progress, ct, stepLog);
 
@@ -86,11 +86,11 @@ public class InstallService
                     chmodCount++;
                 }
             }
-            stepLog?.Report($"✅ Fixed permissions on {chmodCount} item(s) (chmod -R 777)");
+            stepLog?.Invoke($"✅ Fixed permissions on {chmodCount} item(s) (chmod -R 777)");
         }
         else
         {
-            stepLog?.Report($"⏭  Permissions: skipped ({fileSystem ?? "unknown"} filesystem)");
+            stepLog?.Invoke($"⏭  Permissions: skipped ({fileSystem ?? "unknown"} filesystem)");
         }
 
         // Inject PortMaster signature into top-level .sh scripts
@@ -104,7 +104,7 @@ public class InstallService
                 sigCount++;
         }
         if (scripts.Count > 0)
-            stepLog?.Report($"✅ Injected PortMaster signatures into {sigCount}/{scripts.Count} script(s)");
+            stepLog?.Invoke($"✅ Injected PortMaster signatures into {sigCount}/{scripts.Count} script(s)");
 
         // Download required runtimes
         await DownloadRuntimesAsync(port, portsPath, progress, stepLog, ct);
@@ -113,9 +113,9 @@ public class InstallService
         progress?.Report(("Updating gamelist.xml…", 0.99));
         var gamelistErr = MergeGamelist(portsPath, port);
         if (gamelistErr == null)
-            stepLog?.Report("✅ Updated gamelist.xml");
+            stepLog?.Invoke("✅ Updated gamelist.xml");
         else
-            stepLog?.Report($"❌ gamelist.xml update failed: {gamelistErr}");
+            stepLog?.Invoke($"❌ gamelist.xml update failed: {gamelistErr}");
     }
 
     /// <summary>
@@ -213,13 +213,13 @@ public class InstallService
         Port port,
         string portsPath,
         IProgress<(string message, double fraction)>? progress,
-        IProgress<string>? stepLog,
+        Action<string>? stepLog,
         CancellationToken ct)
     {
         var runtimes = GetRuntimes(port.Attr);
         if (runtimes.Count == 0)
         {
-            stepLog?.Report("⏭  Runtimes: none required");
+            stepLog?.Invoke("⏭  Runtimes: none required");
             return;
         }
 
@@ -231,7 +231,7 @@ public class InstallService
         }
         catch (Exception ex)
         {
-            stepLog?.Report($"❌ Runtime catalog fetch failed: {ex.Message}");
+            stepLog?.Invoke($"❌ Runtime catalog fetch failed: {ex.Message}");
             return;
         }
 
@@ -245,14 +245,14 @@ public class InstallService
 
             if (!catalog.TryGetValue(key, out var info))
             {
-                stepLog?.Report($"❌ Runtime not found in catalog: {key}");
+                stepLog?.Invoke($"❌ Runtime not found in catalog: {key}");
                 continue;
             }
 
             var destPath = Path.Combine(libsDir, key);
             if (File.Exists(destPath))
             {
-                stepLog?.Report($"✅ Runtime already present: {info.Name}");
+                stepLog?.Invoke($"✅ Runtime already present: {info.Name}");
                 continue;
             }
 
@@ -260,11 +260,11 @@ public class InstallService
             try
             {
                 await DownloadFileAsync(info.Url, destPath, info.Size, progress, ct);
-                stepLog?.Report($"✅ Downloaded runtime {info.Name} ({info.Size / 1048576.0:F1} MB)");
+                stepLog?.Invoke($"✅ Downloaded runtime {info.Name} ({info.Size / 1048576.0:F1} MB)");
             }
             catch (Exception ex)
             {
-                stepLog?.Report($"❌ Runtime download failed ({info.Name}): {ex.Message}");
+                stepLog?.Invoke($"❌ Runtime download failed ({info.Name}): {ex.Message}");
                 if (File.Exists(destPath)) File.Delete(destPath); // remove partial
             }
         }
@@ -328,19 +328,19 @@ public class InstallService
         string portsPath,
         IProgress<(string message, double fraction)>? progress = null,
         CancellationToken ct = default,
-        IProgress<string>? stepLog = null)
+        Action<string>? stepLog = null)
     {
         if (string.IsNullOrEmpty(sourceGame.InstallPath) || !Directory.Exists(sourceGame.InstallPath))
         {
             var msg = $"Game install path not found: {sourceGame.InstallPath}";
-            stepLog?.Report($"❌ {msg}");
+            stepLog?.Invoke($"❌ {msg}");
             return msg + "\nPlease copy files manually according to the port instructions.";
         }
 
         var instructions = await LoadInstructionsAsync();
         if (!instructions.Ports.TryGetValue(port.Name, out var portInstructions))
         {
-            stepLog?.Report("⚠️  No automatic file instructions — manual copy required");
+            stepLog?.Invoke("⚠️  No automatic file instructions — manual copy required");
             return "No automatic file instructions available for this port.\nPlease follow the manual instructions.";
         }
 
@@ -350,14 +350,14 @@ public class InstallService
         {
             var reason = storeInfo.IncompatibleReason
                 ?? $"The {sourceGame.Store} version of this game is not compatible with this port.";
-            stepLog?.Report($"❌ Incompatible store version: {reason}");
+            stepLog?.Invoke($"❌ Incompatible store version: {reason}");
             return reason;
         }
 
         var steps = portInstructions.GetStepsForStore(storeKey);
         if (steps == null || steps.Count == 0)
         {
-            stepLog?.Report("⚠️  No copy instructions defined — manual installation required");
+            stepLog?.Invoke("⚠️  No copy instructions defined — manual installation required");
             return "No copy instructions defined for this source. Please follow the manual installation instructions.";
         }
 
@@ -372,14 +372,14 @@ public class InstallService
             var error = await ExecuteStepAsync(step, sourceGame.InstallPath, portsPath, ct);
             if (error != null)
             {
-                stepLog?.Report($"❌ Game file step failed: {error}");
+                stepLog?.Invoke($"❌ Game file step failed: {error}");
                 return error;
             }
-            stepLog?.Report($"✅ {step.Description}");
+            stepLog?.Invoke($"✅ {step.Description}");
             done++;
         }
 
-        stepLog?.Report($"✅ Game files copied from {sourceGame.Store} ({done} step(s))");
+        stepLog?.Invoke($"✅ Game files copied from {sourceGame.Store} ({done} step(s))");
         progress?.Report(("Game files installed.", 1.0));
         return null;
     }
@@ -396,7 +396,7 @@ public class InstallService
         string portsPath,
         IProgress<(string message, double fraction)>? progress = null,
         CancellationToken ct = default,
-        IProgress<string>? stepLog = null)
+        Action<string>? stepLog = null)
     {
         if (ownedGame.IsInstalled)
             return await InstallGameFilesAsync(port, ownedGame, portsPath, progress, ct, stepLog);
@@ -423,20 +423,20 @@ public class InstallService
 
             if (!depotReady)
             {
-                stepLog?.Report("⏳ Opening Steam to download game depot…");
+                stepLog?.Invoke("⏳ Opening Steam to download game depot…");
                 var depotSvc = new SteamDepotService();
                 var depotErr = await depotSvc.DownloadDepotViaLocalSteamAsync(
                     appId, depotInfo.DepotId, depotInfo.ManifestId, progress, ct);
                 if (depotErr != null)
                 {
-                    stepLog?.Report($"❌ Depot download: {depotErr}");
+                    stepLog?.Invoke($"❌ Depot download: {depotErr}");
                     return depotErr;
                 }
-                stepLog?.Report("✅ Depot downloaded via Steam");
+                stepLog?.Invoke("✅ Depot downloaded via Steam");
             }
             else
             {
-                stepLog?.Report("✅ Steam depot already present");
+                stepLog?.Invoke("✅ Steam depot already present");
                 progress?.Report(("Depot already downloaded — copying files…", 0.5));
             }
 

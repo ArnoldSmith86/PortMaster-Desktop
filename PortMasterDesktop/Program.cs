@@ -66,7 +66,7 @@ class Program
             try
             {
                 var pm = new PortMasterClient(cache);
-                var progress = new Progress<string>(msg => Console.Write($"\r  {msg,-60}"));
+                Action<string> progress = msg => Console.Write($"\r  {msg,-60}");
                 var ports = await pm.GetPortsAsync(forceRefresh, progress);
                 Console.WriteLine();
                 var rtr = ports.Count(p => p.Attr.Rtr);
@@ -339,7 +339,7 @@ class Program
             var stores = new List<IGameStore> { new LocalSteamStore(cache), new GogStore(cache) };
             var installSvc = new InstallService(pm);
             var libSvc = new LibraryService(stores, pm, partSvc, installSvc);
-            var progress = new Progress<string>(msg => Console.Write($"\r  {msg,-60}"));
+            Action<string> progress = msg => Console.Write($"\r  {msg,-60}");
             var (matches, partitions, storeCounts) = await libSvc.LoadAsync(forceRefresh, progress);
             Console.WriteLine();
 

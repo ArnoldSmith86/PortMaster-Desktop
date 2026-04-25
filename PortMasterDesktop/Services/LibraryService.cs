@@ -28,16 +28,16 @@ public class LibraryService
                        IReadOnlyList<(string displayName, int count)> storeCounts)>
         LoadAsync(
             bool forceRefresh = false,
-            IProgress<string>? progress = null,
+            Action<string>? progress = null,
             CancellationToken ct = default)
     {
         var partitions = _partitionService.Detect();
         var primaryPartition = partitions.FirstOrDefault();
 
-        progress?.Report("Loading PortMaster catalog…");
+        progress?.Invoke("Loading PortMaster catalog…");
         var ports = await _portMaster.GetPortsAsync(forceRefresh, progress, ct);
 
-        progress?.Report("Loading game libraries…");
+        progress?.Invoke("Loading game libraries…");
         var authStores = new List<IGameStore>();
         foreach (var store in _stores)
             if (await store.IsAuthenticatedAsync())
@@ -67,7 +67,7 @@ public class LibraryService
                 if (seen.Add($"{authStores[i].StoreId}:{g.Id}"))
                     allOwned.Add(g);
 
-        progress?.Report("Matching games with ports…");
+        progress?.Invoke("Matching games with ports…");
 
         // Build port lookup: store → gameUrl → port (for fast matching)
         var portByStoreUrl = new Dictionary<string, Port>(StringComparer.OrdinalIgnoreCase);

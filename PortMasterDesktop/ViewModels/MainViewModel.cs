@@ -126,10 +126,10 @@ public partial class MainViewModel : ObservableObject
     {
         IsLoading = true;
         StatusMessage = "Loading…";
-        var progress = new Progress<string>(msg => StatusMessage = msg);
         try
         {
-            var (matches, partitions, storeCounts) = await _library.LoadAsync(forceRefresh, progress);
+            var (matches, partitions, storeCounts) = await _library.LoadAsync(forceRefresh,
+                msg => StatusMessage = msg);
             _allMatches = matches;
             ActivePartition = partitions.FirstOrDefault();
             if (ActivePartition != null)
@@ -220,7 +220,7 @@ public partial class MainViewModel : ObservableObject
             InstallMessage = p.msg;
             InstallProgress = p.frac;
         });
-        var stepLog = new Progress<string>(LogStep);
+        Action<string> stepLog = LogStep;
 
         bool hasErrors = false;
 

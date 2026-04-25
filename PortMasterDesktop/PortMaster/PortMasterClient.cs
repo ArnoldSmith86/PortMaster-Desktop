@@ -49,7 +49,7 @@ public class PortMasterClient
 
     public async Task<IReadOnlyList<Port>> GetPortsAsync(
         bool forceRefresh = false,
-        IProgress<string>? progress = null,
+        Action<string>? progress = null,
         CancellationToken ct = default)
     {
         if (!forceRefresh)
@@ -67,10 +67,10 @@ public class PortMasterClient
             }
         }
 
-        progress?.Report("Downloading PortMaster catalog…");
+        progress?.Invoke("Downloading PortMaster catalog…");
         var json = await Http.GetStringAsync(PortsJsonUrl, ct);
 
-        progress?.Report("Parsing port list…");
+        progress?.Invoke("Parsing port list…");
         var collection = JsonSerializer.Deserialize<PortsCollection>(json, JsonOpts);
         if (collection?.Ports == null || collection.Ports.Count == 0)
             throw new Exception("ports.json is empty or unparseable.");
@@ -101,7 +101,7 @@ public class PortMasterClient
         string portsPath,
         IProgress<(string message, double fraction)>? progress = null,
         CancellationToken ct = default,
-        IProgress<string>? stepLog = null)
+        Action<string>? stepLog = null)
     {
         var downloadUrl = string.IsNullOrEmpty(port.DownloadUrl)
             ? throw new Exception($"No download URL for {port.Name}")
@@ -114,7 +114,7 @@ public class PortMasterClient
         {
             await DownloadWithProgressAsync(downloadUrl, tempFile, port.Size, progress, ct);
             var sizeMb = (new FileInfo(tempFile).Length) / 1048576.0;
-            stepLog?.Report($"✅ Downloaded {port.Attr.Title} ({sizeMb:F1} MB)");
+            stepLog?.Invoke($"✅ Downloaded {port.Attr.Title} ({sizeMb:F1} MB)");
 
             progress?.Report(($"Extracting {port.Name}…", 0.95));
             int fileCount = 0;
@@ -134,7 +134,7 @@ public class PortMasterClient
                     }
                 }
             }, ct);
-            stepLog?.Report($"✅ Extracted {fileCount} file(s) to {portsPath}");
+            stepLog?.Invoke($"✅ Extracted {fileCount} file(s) to {portsPath}");
         }
         finally
         {
