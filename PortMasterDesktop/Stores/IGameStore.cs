@@ -24,6 +24,9 @@ public interface IGameStore
     /// <summary>Returns the user's full game library for this store.</summary>
     Task<IReadOnlyList<StoreGame>> GetLibraryAsync(CancellationToken ct = default);
 
+    /// <summary>Clears any cached library data so the next GetLibraryAsync re-reads from source.</summary>
+    Task InvalidateLibraryCacheAsync();
+
     /// <summary>
     /// Attempts to match a port store URL to a game the user owns.
     /// Returns null if not owned.

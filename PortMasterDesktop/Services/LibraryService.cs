@@ -40,8 +40,11 @@ public class LibraryService
         progress?.Invoke("Loading game libraries…");
         var authStores = new List<IGameStore>();
         foreach (var store in _stores)
+        {
+            if (forceRefresh) await store.InvalidateLibraryCacheAsync();
             if (await store.IsAuthenticatedAsync())
                 authStores.Add(store);
+        }
 
         var libraryTasks = authStores.Select(s => s.GetLibraryAsync(ct)).ToList();
         var libraries = await Task.WhenAll(libraryTasks);

@@ -44,6 +44,8 @@ public abstract class BaseGameStore : IGameStore
     public abstract Task<string?> GetAccountNameAsync();
     public abstract Task<IReadOnlyList<StoreGame>> GetLibraryAsync(CancellationToken ct = default);
 
+    public virtual Task InvalidateLibraryCacheAsync() => Task.CompletedTask;
+
     public virtual async Task<StoreGame?> FindOwnedGameAsync(string storeUrl, CancellationToken ct = default)
     {
         if (!await IsAuthenticatedAsync()) return null;

@@ -86,6 +86,13 @@ public class LocalSteamStore : BaseGameStore
         return Task.CompletedTask;
     }
 
+    public override Task InvalidateLibraryCacheAsync()
+    {
+        _libraryCache = null;
+        Cache.Invalidate(LibraryCacheKey);
+        return Task.CompletedTask;
+    }
+
     public override async Task<string?> GetAccountNameAsync()
     {
         _steamRoot ??= FindSteamRoot();
