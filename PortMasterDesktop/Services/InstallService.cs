@@ -67,13 +67,15 @@ public class InstallService
         string portsPath,
         IProgress<(string message, double fraction)>? progress = null,
         CancellationToken ct = default,
-        string? fileSystem = null)
+        string? fileSystem = null,
+        IProgress<string>? stepLog = null)
     {
-        await _portMaster.InstallPortAsync(port, portsPath, progress, ct);
+        await _portMaster.InstallPortAsync(port, portsPath, progress, ct, stepLog);
 
         // Fix permissions for ext4/ext3/overlay (zip extraction doesn't preserve Unix modes)
         if (fileSystem is "ext4" or "ext3" or "overlay" && OperatingSystem.IsLinux())
         {
+            int chmodCount = 0;
             foreach (var item in port.Items.Concat(port.ItemsOpt))
             {
                 var itemPath = Path.Combine(portsPath, item.TrimEnd('/'));
@@ -81,21 +83,39 @@ public class InstallService
                 {
                     progress?.Report(($"Fixing permissions: {item}", 0.97));
                     await ChmodAsync(itemPath);
+                    chmodCount++;
                 }
             }
+            stepLog?.Report($"✅ Fixed permissions on {chmodCount} item(s) (chmod -R 777)");
+        }
+        else
+        {
+            stepLog?.Report($"⏭  Permissions: skipped ({fileSystem ?? "unknown"} filesystem)");
         }
 
         // Inject PortMaster signature into top-level .sh scripts
-        foreach (var item in port.Items.Concat(port.ItemsOpt)
-            .Where(i => i.EndsWith(".sh", StringComparison.OrdinalIgnoreCase)))
+        var scripts = port.Items.Concat(port.ItemsOpt)
+            .Where(i => i.EndsWith(".sh", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        int sigCount = 0;
+        foreach (var item in scripts)
         {
-            AddPmSignature(Path.Combine(portsPath, item), port.Name, item);
+            if (AddPmSignature(Path.Combine(portsPath, item), port.Name, item))
+                sigCount++;
         }
+        if (scripts.Count > 0)
+            stepLog?.Report($"✅ Injected PortMaster signatures into {sigCount}/{scripts.Count} script(s)");
 
         // Download required runtimes
-        await DownloadRuntimesAsync(port, portsPath, progress, ct);
+        await DownloadRuntimesAsync(port, portsPath, progress, stepLog, ct);
 
-        MergeGamelist(portsPath, port); // best-effort; error ignored in UI path
+        // Merge gamelist.xml
+        progress?.Report(("Updating gamelist.xml…", 0.99));
+        var gamelistErr = MergeGamelist(portsPath, port);
+        if (gamelistErr == null)
+            stepLog?.Report("✅ Updated gamelist.xml");
+        else
+            stepLog?.Report($"❌ gamelist.xml update failed: {gamelistErr}");
     }
 
     /// <summary>
@@ -173,30 +193,35 @@ public class InstallService
         catch { /* best-effort */ }
     }
 
-    private static void AddPmSignature(string scriptPath, string portName, string itemName)
+    private static bool AddPmSignature(string scriptPath, string portName, string itemName)
     {
-        if (!File.Exists(scriptPath)) return;
+        if (!File.Exists(scriptPath)) return false;
         try
         {
             var text = File.ReadAllText(scriptPath);
             var lines = text.Split('\n').ToList();
-            // Remove any existing PORTMASTER signature lines
             lines = lines.Where(l => !(l.TrimStart().StartsWith('#') && l.Contains("PORTMASTER:"))).ToList();
-            if (lines.Count == 0) return;
+            if (lines.Count == 0) return false;
             lines.Insert(1, $"# PORTMASTER: {portName}, {itemName}");
             File.WriteAllText(scriptPath, string.Join("\n", lines));
+            return true;
         }
-        catch { /* best-effort */ }
+        catch { return false; }
     }
 
     private async Task DownloadRuntimesAsync(
         Port port,
         string portsPath,
         IProgress<(string message, double fraction)>? progress,
+        IProgress<string>? stepLog,
         CancellationToken ct)
     {
         var runtimes = GetRuntimes(port.Attr);
-        if (runtimes.Count == 0) return;
+        if (runtimes.Count == 0)
+        {
+            stepLog?.Report("⏭  Runtimes: none required");
+            return;
+        }
 
         Dictionary<string, PortMasterClient.RuntimeInfo> catalog;
         try
@@ -204,7 +229,11 @@ public class InstallService
             progress?.Report(("Fetching runtime catalog…", 0.97));
             catalog = await _portMaster.GetRuntimeCatalogAsync(ct);
         }
-        catch { return; /* runtime download is best-effort */ }
+        catch (Exception ex)
+        {
+            stepLog?.Report($"❌ Runtime catalog fetch failed: {ex.Message}");
+            return;
+        }
 
         var libsDir = Path.Combine(portsPath, "PortMaster", "libs");
         Directory.CreateDirectory(libsDir);
@@ -214,17 +243,30 @@ public class InstallService
             var key = runtime.EndsWith(".squashfs", StringComparison.OrdinalIgnoreCase)
                 ? runtime : runtime + ".squashfs";
 
-            if (!catalog.TryGetValue(key, out var info)) continue;
+            if (!catalog.TryGetValue(key, out var info))
+            {
+                stepLog?.Report($"❌ Runtime not found in catalog: {key}");
+                continue;
+            }
 
             var destPath = Path.Combine(libsDir, key);
-            if (File.Exists(destPath)) continue; // already present
+            if (File.Exists(destPath))
+            {
+                stepLog?.Report($"✅ Runtime already present: {info.Name}");
+                continue;
+            }
 
             progress?.Report(($"Downloading runtime {info.Name}…", 0.97));
             try
             {
                 await DownloadFileAsync(info.Url, destPath, info.Size, progress, ct);
+                stepLog?.Report($"✅ Downloaded runtime {info.Name} ({info.Size / 1048576.0:F1} MB)");
             }
-            catch { /* best-effort — port may still run if runtime is already on device */ }
+            catch (Exception ex)
+            {
+                stepLog?.Report($"❌ Runtime download failed ({info.Name}): {ex.Message}");
+                if (File.Exists(destPath)) File.Delete(destPath); // remove partial
+            }
         }
     }
 
@@ -285,26 +327,39 @@ public class InstallService
         StoreGame sourceGame,
         string portsPath,
         IProgress<(string message, double fraction)>? progress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        IProgress<string>? stepLog = null)
     {
         if (string.IsNullOrEmpty(sourceGame.InstallPath) || !Directory.Exists(sourceGame.InstallPath))
-            return $"Game install path not found: {sourceGame.InstallPath}\nPlease copy files manually according to the port instructions.";
+        {
+            var msg = $"Game install path not found: {sourceGame.InstallPath}";
+            stepLog?.Report($"❌ {msg}");
+            return msg + "\nPlease copy files manually according to the port instructions.";
+        }
 
         var instructions = await LoadInstructionsAsync();
         if (!instructions.Ports.TryGetValue(port.Name, out var portInstructions))
+        {
+            stepLog?.Report("⚠️  No automatic file instructions — manual copy required");
             return "No automatic file instructions available for this port.\nPlease follow the manual instructions.";
+        }
 
-        // Reject incompatible store versions before attempting any file copy
         var storeKey = sourceGame.Store.ToString().ToLowerInvariant();
         var storeInfo = portInstructions.Stores?.GetValueOrDefault(storeKey);
         if (storeInfo?.Compatibility == "incompatible")
-            return storeInfo.IncompatibleReason
+        {
+            var reason = storeInfo.IncompatibleReason
                 ?? $"The {sourceGame.Store} version of this game is not compatible with this port.";
+            stepLog?.Report($"❌ Incompatible store version: {reason}");
+            return reason;
+        }
 
         var steps = portInstructions.GetStepsForStore(storeKey);
-
         if (steps == null || steps.Count == 0)
+        {
+            stepLog?.Report("⚠️  No copy instructions defined — manual installation required");
             return "No copy instructions defined for this source. Please follow the manual installation instructions.";
+        }
 
         int total = steps.Count;
         int done = 0;
@@ -312,13 +367,19 @@ public class InstallService
         foreach (var step in steps)
         {
             ct.ThrowIfCancellationRequested();
-            progress?.Report(($"Installing: {step.Description}", (double)done / total));
+            progress?.Report(($"Copying: {step.Description}", (double)done / total));
 
             var error = await ExecuteStepAsync(step, sourceGame.InstallPath, portsPath, ct);
-            if (error != null) return error;
+            if (error != null)
+            {
+                stepLog?.Report($"❌ Game file step failed: {error}");
+                return error;
+            }
+            stepLog?.Report($"✅ {step.Description}");
             done++;
         }
 
+        stepLog?.Report($"✅ Game files copied from {sourceGame.Store} ({done} step(s))");
         progress?.Report(("Game files installed.", 1.0));
         return null;
     }
@@ -334,10 +395,11 @@ public class InstallService
         StoreGame ownedGame,
         string portsPath,
         IProgress<(string message, double fraction)>? progress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        IProgress<string>? stepLog = null)
     {
         if (ownedGame.IsInstalled)
-            return await InstallGameFilesAsync(port, ownedGame, portsPath, progress, ct);
+            return await InstallGameFilesAsync(port, ownedGame, portsPath, progress, ct, stepLog);
 
         var instr = await LoadInstructionsAsync();
         if (!instr.Ports.TryGetValue(port.Name, out var portInst))
@@ -356,17 +418,25 @@ public class InstallService
 
             var depotPath = SteamDepotService.DepotPath(appId, depotInfo.DepotId);
             bool depotReady = Directory.Exists(depotPath) &&
-                Directory.EnumerateFiles(depotPath, "*", SearchOption.AllDirectories).Any();
+                Directory.EnumerateFiles(depotPath, "*", SearchOption.AllDirectories).Any(
+                    f => !Path.GetFileName(f).StartsWith('.'));
 
             if (!depotReady)
             {
+                stepLog?.Report("⏳ Opening Steam to download game depot…");
                 var depotSvc = new SteamDepotService();
                 var depotErr = await depotSvc.DownloadDepotViaLocalSteamAsync(
                     appId, depotInfo.DepotId, depotInfo.ManifestId, progress, ct);
-                if (depotErr != null) return depotErr;
+                if (depotErr != null)
+                {
+                    stepLog?.Report($"❌ Depot download: {depotErr}");
+                    return depotErr;
+                }
+                stepLog?.Report("✅ Depot downloaded via Steam");
             }
             else
             {
+                stepLog?.Report("✅ Steam depot already present");
                 progress?.Report(("Depot already downloaded — copying files…", 0.5));
             }
 
@@ -375,7 +445,7 @@ public class InstallService
                 Store = StoreId.Steam, Id = appId, Title = port.Attr.Title,
                 IsInstalled = true, InstallPath = depotPath
             };
-            return await InstallGameFilesAsync(port, fakeGame, portsPath, progress, ct);
+            return await InstallGameFilesAsync(port, fakeGame, portsPath, progress, ct, stepLog);
         }
 
         return $"Please install {port.Attr.Title} locally via {ownedGame.Store}, then click Install again.";

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PortMasterDesktop.Models;
@@ -26,7 +27,12 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private double _installProgress;
     [ObservableProperty] private string _installMessage = "";
     [ObservableProperty] private bool _isInstalling;
+    [ObservableProperty] private ObservableCollection<string> _installSteps = [];
+    [ObservableProperty] private bool _showInstallLog;
     [ObservableProperty] private PartitionInfo? _activePartition;
+
+    private StreamWriter? _installLogWriter;
+    public string? LastInstallLogPath { get; private set; }
     [ObservableProperty] private string _partitionStatus = "No SD card detected";
     [ObservableProperty] private string _dbStats = "";
 
@@ -163,6 +169,11 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void SelectGame(GameMatch? game)
     {
+        if (game != SelectedGame)
+        {
+            ShowInstallLog = false;
+            InstallSteps.Clear();
+        }
         SelectedGame = game;
         OnPropertyChanged(nameof(HasSelectedGame));
         OnPropertyChanged(nameof(CanInstall));
@@ -184,52 +195,98 @@ public partial class MainViewModel : ObservableObject
         if (SelectedGame?.Port == null || ActivePartition == null) return;
 
         IsInstalling = true;
+        ShowInstallLog = true;
         InstallProgress = 0;
         InstallMessage = "Starting…";
+        InstallSteps.Clear();
 
-        var progress = new Progress<(string msg, double frac)>(p =>
+        // Open log file
+        var logDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "PortMasterDesktop", "logs");
+        Directory.CreateDirectory(logDir);
+        LastInstallLogPath = Path.Combine(logDir,
+            $"install_{DateTime.Now:yyyyMMdd_HHmmss}_{SelectedGame.Port.Slug}.log");
+        _installLogWriter?.Dispose();
+        _installLogWriter = new StreamWriter(LastInstallLogPath, append: false) { AutoFlush = true };
+        _installLogWriter.WriteLine("=== PortMaster Desktop Install Log ===");
+        _installLogWriter.WriteLine($"Port:       {SelectedGame.Port.Attr.Title}  ({SelectedGame.Port.Name})");
+        _installLogWriter.WriteLine($"SD card:    {ActivePartition.MountPoint}  ({ActivePartition.FileSystem})");
+        _installLogWriter.WriteLine($"Started:    {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        _installLogWriter.WriteLine();
+
+        var barProgress = new Progress<(string msg, double frac)>(p =>
         {
             InstallMessage = p.msg;
             InstallProgress = p.frac;
         });
+        var stepLog = new Progress<string>(LogStep);
+
+        bool hasErrors = false;
 
         try
         {
             var portPath = ActivePartition.PortsPath;
 
             if (SelectedGame.InstallState == PortInstallState.NotInstalled)
-                await _installer.InstallPortAsync(SelectedGame.Port, portPath, progress,
-                    fileSystem: ActivePartition.FileSystem);
+                await _installer.InstallPortAsync(SelectedGame.Port, portPath, barProgress,
+                    fileSystem: ActivePartition.FileSystem, stepLog: stepLog);
 
             var localGame = SelectedGame.OwnedGames.FirstOrDefault(g => g.IsInstalled);
             if (localGame != null && SelectedGame.InstallState != PortInstallState.Ready)
             {
                 var error = await _installer.InstallGameFilesAsync(
-                    SelectedGame.Port, localGame, portPath, progress);
+                    SelectedGame.Port, localGame, portPath, barProgress, stepLog: stepLog);
                 if (error != null)
+                {
+                    hasErrors = true;
+                    LogStep($"⚠️  Game files: {error}");
                     await ShowManualInstructionsAsync(SelectedGame.Port, error);
+                }
             }
             else if (!SelectedGame.Port.Attr.Rtr && SelectedGame.OwnedGames.Count > 0 && localGame == null)
             {
-                // Owned but not locally installed — try depot download or instruct
                 var ownedGame = SelectedGame.OwnedGames.First();
                 var error = await _installer.DownloadAndInstallGameFilesAsync(
-                    SelectedGame.Port, ownedGame, portPath, progress);
+                    SelectedGame.Port, ownedGame, portPath, barProgress, stepLog: stepLog);
                 if (error != null)
+                {
+                    hasErrors = true;
+                    LogStep($"⚠️  Game files: {error}");
                     await ShowManualInstructionsAsync(SelectedGame.Port, error);
+                }
             }
             else if (!SelectedGame.Port.Attr.Rtr && SelectedGame.OwnedGames.Count == 0)
             {
+                hasErrors = true;
+                LogStep("⚠️  No owned copy found — manual game file installation required");
                 await ShowManualInstructionsAsync(SelectedGame.Port,
                     "No owned game found in connected stores, or not installed locally.");
             }
 
-            InstallMessage = "Done!";
+            InstallMessage = hasErrors ? "Done (check log for warnings)" : "Done!";
             InstallProgress = 1.0;
+            LogStep($"📄 Log: {LastInstallLogPath}");
             await LoadAsync();
         }
-        catch (Exception ex) { InstallMessage = $"Error: {ex.Message}"; }
-        finally { IsInstalling = false; }
+        catch (Exception ex)
+        {
+            InstallMessage = $"Error: {ex.Message}";
+            LogStep($"❌ Fatal: {ex.Message}");
+            _installLogWriter?.WriteLine($"\nEXCEPTION:\n{ex}");
+        }
+        finally
+        {
+            IsInstalling = false;
+            _installLogWriter?.Dispose();
+            _installLogWriter = null;
+        }
+    }
+
+    private void LogStep(string line)
+    {
+        InstallSteps.Add(line);
+        _installLogWriter?.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}]  {line}");
     }
 
     [RelayCommand]

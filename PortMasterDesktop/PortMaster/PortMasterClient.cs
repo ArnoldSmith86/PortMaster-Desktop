@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using PortMasterDesktop.Models;
@@ -99,22 +100,41 @@ public class PortMasterClient
         Port port,
         string portsPath,
         IProgress<(string message, double fraction)>? progress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        IProgress<string>? stepLog = null)
     {
         var downloadUrl = string.IsNullOrEmpty(port.DownloadUrl)
             ? throw new Exception($"No download URL for {port.Name}")
             : port.DownloadUrl;
 
-        progress?.Report(($"Downloading {port.Name}…", 0));
+        progress?.Report(($"Downloading {port.Attr.Title}…", 0));
 
         var tempFile = Path.Combine(Path.GetTempPath(), port.Name);
         try
         {
             await DownloadWithProgressAsync(downloadUrl, tempFile, port.Size, progress, ct);
+            var sizeMb = (new FileInfo(tempFile).Length) / 1048576.0;
+            stepLog?.Report($"✅ Downloaded {port.Attr.Title} ({sizeMb:F1} MB)");
+
             progress?.Report(($"Extracting {port.Name}…", 0.95));
-            await Task.Run(() => System.IO.Compression.ZipFile.ExtractToDirectory(
-                tempFile, portsPath, overwriteFiles: true), ct);
-            progress?.Report(("Done.", 1.0));
+            int fileCount = 0;
+            await Task.Run(() =>
+            {
+                using var zip = System.IO.Compression.ZipFile.OpenRead(tempFile);
+                fileCount = zip.Entries.Count(e => !e.FullName.EndsWith('/'));
+                foreach (var entry in zip.Entries)
+                {
+                    var destPath = Path.GetFullPath(Path.Combine(portsPath, entry.FullName));
+                    if (entry.FullName.EndsWith('/'))
+                        Directory.CreateDirectory(destPath);
+                    else
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
+                        entry.ExtractToFile(destPath, overwrite: true);
+                    }
+                }
+            }, ct);
+            stepLog?.Report($"✅ Extracted {fileCount} file(s) to {portsPath}");
         }
         finally
         {

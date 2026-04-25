@@ -131,10 +131,26 @@
                         </Border>
                     </StackPanel>
 
-                    <StackPanel IsVisible="{Binding IsInstalling}" Spacing="2">
-                        <ProgressBar Value="{Binding InstallProgress}" Minimum="0" Maximum="1" Height="4"/>
-                        <TextBlock Text="{Binding InstallMessage}"
-                                   FontSize="11" Foreground="#6a6a8a"/>
+                    <StackPanel IsVisible="{Binding ShowInstallLog}" Spacing="3">
+                        <StackPanel IsVisible="{Binding IsInstalling}" Spacing="2">
+                            <ProgressBar Value="{Binding InstallProgress}" Minimum="0" Maximum="1" Height="4"/>
+                            <TextBlock Text="{Binding InstallMessage}"
+                                       FontSize="11" Foreground="#b0b0cc"/>
+                        </StackPanel>
+                        <Border Background="#0a0a1a" CornerRadius="6" Padding="6,4" MaxHeight="110">
+                            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                          VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding InstallSteps}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" FontSize="10"
+                                                       FontFamily="Monospace"
+                                                       Foreground="#9090b8" TextWrapping="Wrap"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
                     </StackPanel>
                     <TextBlock IsVisible="{Binding NoPartitionDetected}"
                                Text="{Binding PartitionStatus}"
