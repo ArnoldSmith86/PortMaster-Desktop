@@ -83,6 +83,7 @@ public class LibraryService
         {
             var owned = new List<StoreGame>();
             StoreMatchCompatibility? bestCompat = null;
+            string? incompatibleReason = null;
 
             // Load GFI store entries once; build a lookup by StoreId for Phase 1 use
             var gfiEntries = await _installService.GetStoreEntriesAsync(port.Name);
@@ -110,6 +111,8 @@ public class LibraryService
                             ? GfiCompatToMatchCompat(gfi.Compatibility)
                             : StoreMatchCompatibility.Unknown;
                         bestCompat = BestCompat(bestCompat, compat);
+                        if (compat == StoreMatchCompatibility.Incompatible)
+                            incompatibleReason ??= gfi!.IncompatibleReason;
                         break;
                     }
                 }
@@ -129,7 +132,10 @@ public class LibraryService
                     if (game != null && owned.All(g => g.Id != game.Id))
                     {
                         owned.Add(game);
-                        bestCompat = BestCompat(bestCompat, GfiCompatToMatchCompat(entry.Compatibility));
+                        var matchCompat = GfiCompatToMatchCompat(entry.Compatibility);
+                        bestCompat = BestCompat(bestCompat, matchCompat);
+                        if (matchCompat == StoreMatchCompatibility.Incompatible)
+                            incompatibleReason ??= entry.IncompatibleReason;
                         break;
                     }
                 }
@@ -144,6 +150,7 @@ public class LibraryService
                 OwnedGames = owned,
                 InstallState = installState,
                 StoreCompat = owned.Count > 0 ? bestCompat : null,
+                IncompatibleReason = bestCompat == StoreMatchCompatibility.Incompatible ? incompatibleReason : null,
             };
         }
 

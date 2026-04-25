@@ -34,18 +34,21 @@ public class GameMatch
     /// <summary>Best compatibility level across all owned games. Null when no owned game.</summary>
     public StoreMatchCompatibility? StoreCompat { get; set; }
 
+    /// <summary>Human-readable reason for incompatibility, when StoreCompat == Incompatible.</summary>
+    public string? IncompatibleReason { get; set; }
+
     public bool HasPort => Port != null;
     public bool IsRtr => Port?.Attr.Rtr ?? false;
     public bool HasOwnedGame => OwnedGames.Count > 0;
 
-    // Compat badges replace AVAILABLE only when the port isn't yet installed/needing files.
-    private bool IsUninstalledState =>
-        InstallState is PortInstallState.NotInstalled or PortInstallState.NoPartition;
+    // Compat badges replace the install-state badge unless the game is already fully working.
+    private bool IsNotReady =>
+        InstallState is not PortInstallState.Ready;
 
     public bool ShowIncompatibleBadge =>
-        OwnedGames.Count > 0 && StoreCompat == StoreMatchCompatibility.Incompatible && IsUninstalledState;
+        OwnedGames.Count > 0 && StoreCompat == StoreMatchCompatibility.Incompatible && IsNotReady;
     public bool ShowUnknownCompatBadge =>
-        OwnedGames.Count > 0 && StoreCompat == StoreMatchCompatibility.Unknown && IsUninstalledState;
+        OwnedGames.Count > 0 && StoreCompat == StoreMatchCompatibility.Unknown && IsNotReady;
 
     // Normal install-state badge shows when no compat badge is replacing it
     public bool ShowInstallStateBadge =>

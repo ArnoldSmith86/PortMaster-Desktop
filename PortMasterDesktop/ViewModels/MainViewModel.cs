@@ -48,7 +48,13 @@ public partial class MainViewModel : ObservableObject
 
     public bool HasSelectedGame => SelectedGame != null;
     public bool IsEmpty => !IsLoading && DisplayedGames.Count == 0;
+    public bool SelectedIsIncompatible =>
+        SelectedGame?.StoreCompat == StoreMatchCompatibility.Incompatible
+        && (SelectedGame?.HasOwnedGame ?? false);
+    public string SelectedIncompatibleReason =>
+        SelectedGame?.IncompatibleReason ?? "This version of the game is not compatible with this port.";
     public bool CanInstall => SelectedGame?.HasPort == true
+        && !SelectedIsIncompatible
         && ActivePartition != null
         && ActivePartition.CanWrite
         && !IsInstalling
@@ -177,6 +183,8 @@ public partial class MainViewModel : ObservableObject
         SelectedGame = game;
         OnPropertyChanged(nameof(HasSelectedGame));
         OnPropertyChanged(nameof(CanInstall));
+        OnPropertyChanged(nameof(SelectedIsIncompatible));
+        OnPropertyChanged(nameof(SelectedIncompatibleReason));
         OnPropertyChanged(nameof(SelectedPortSize));
         OnPropertyChanged(nameof(SelectedGameSize));
         OnPropertyChanged(nameof(SelectedInstallStateText));

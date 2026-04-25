@@ -131,6 +131,11 @@
                         </Border>
                     </StackPanel>
 
+                    <!-- Incompatibility warning (replaces install button) -->
+                    <TextBlock IsVisible="{Binding SelectedIsIncompatible}"
+                               Text="{Binding SelectedIncompatibleReason}"
+                               FontSize="11" Foreground="#ff6060" TextWrapping="Wrap"/>
+
                     <StackPanel IsVisible="{Binding ShowInstallLog}" Spacing="3">
                         <StackPanel IsVisible="{Binding IsInstalling}" Spacing="2">
                             <ProgressBar Value="{Binding InstallProgress}" Minimum="0" Maximum="1" Height="4"/>
