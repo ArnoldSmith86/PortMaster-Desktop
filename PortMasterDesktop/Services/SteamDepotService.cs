@@ -53,38 +53,44 @@ public class SteamDepotService
     ///
     /// Returns null on success, error string on failure.
     /// </summary>
+    /// <param name="showDialog">
+    /// Called with (title, body) to display the paste-command dialog.
+    /// The caller must await it — the method continues only after the user clicks OK.
+    /// If null the download starts immediately without a confirmation step.
+    /// </param>
     public async Task<string?> DownloadDepotViaLocalSteamAsync(
         string appId,
         string depotId,
         string? manifestId = null,
         IProgress<(string message, double fraction)>? progress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        Func<string, string, Task>? showDialog = null)
     {
         var depotPath = DepotPath(appId, depotId);
 
-        // Already downloaded?
         if (Directory.Exists(depotPath) && DirectoryHasFiles(depotPath))
         {
             progress?.Report(("Depot already downloaded.", 1.0));
             return null;
         }
 
-        // Open Steam console
         var openErr = OpenSteamConsole();
         if (openErr != null) return openErr;
 
-        // Tell user what to paste — they dismiss the prompt once they've done it
         var consoleCommand = manifestId != null
             ? $"download_depot {appId} {depotId} {manifestId}"
             : $"download_depot {appId} {depotId}";
-        var prompted = await PromptAsync(
-            "Steam Console",
-            $"A Steam Console tab has opened. Paste this command and press Enter:\n\n" +
-            $"    {consoleCommand}\n\n" +
-            $"Then click OK — the app will monitor the download automatically.");
-        if (prompted == null) return "Cancelled.";
 
-        // Monitor until the depot path is populated and stable
+        if (showDialog != null)
+        {
+            await showDialog(
+                "Steam Console",
+                $"The Steam console is now open.\n\n" +
+                $"Paste this command and press Enter:\n\n" +
+                $"    {consoleCommand}\n\n" +
+                $"Then click OK — the app will monitor the download and copy the files automatically.");
+        }
+
         progress?.Report(("Waiting for Steam download to start…", 0.02));
         return await MonitorDepotDownloadAsync(depotPath, progress, ct);
     }
@@ -183,6 +189,4 @@ public class SteamDepotService
         return false;
     }
 
-    private static Task<string?> PromptAsync(string title, string message)
-        => BaseGameStore.PromptDelegate?.Invoke(title, message) ?? Task.FromResult<string?>(null);
 }

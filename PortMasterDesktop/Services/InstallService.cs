@@ -30,6 +30,9 @@ public class InstallService
     private readonly PortMasterClient _portMaster;
     private GameFileInstructions? _instructions;
 
+    /// <summary>Wired up by the ViewModel to show a modal dialog and await the user clicking OK.</summary>
+    public Func<string, string, Task>? ShowDialogAsync { get; set; }
+
     public InstallService(PortMasterClient portMaster)
     {
         _portMaster = portMaster;
@@ -423,16 +426,20 @@ public class InstallService
 
             if (!depotReady)
             {
-                stepLog?.Invoke("⏳ Opening Steam to download game depot…");
+                var consoleCommand = depotInfo.ManifestId != null
+                    ? $"download_depot {appId} {depotInfo.DepotId} {depotInfo.ManifestId}"
+                    : $"download_depot {appId} {depotInfo.DepotId}";
+                stepLog?.Invoke($"⏳ Opening Steam console…");
                 var depotSvc = new SteamDepotService();
                 var depotErr = await depotSvc.DownloadDepotViaLocalSteamAsync(
-                    appId, depotInfo.DepotId, depotInfo.ManifestId, progress, ct);
+                    appId, depotInfo.DepotId, depotInfo.ManifestId, progress, ct,
+                    showDialog: ShowDialogAsync);
                 if (depotErr != null)
                 {
                     stepLog?.Invoke($"❌ Depot download: {depotErr}");
                     return depotErr;
                 }
-                stepLog?.Invoke("✅ Depot downloaded via Steam");
+                stepLog?.Invoke($"✅ Steam depot downloaded — command was: {consoleCommand}");
             }
             else
             {

@@ -221,6 +221,7 @@ public partial class MainViewModel : ObservableObject
             InstallProgress = p.frac;
         });
         Action<string> stepLog = LogStep;
+        _installer.ShowDialogAsync = ShowAlertAsync;
 
         bool hasErrors = false;
 
