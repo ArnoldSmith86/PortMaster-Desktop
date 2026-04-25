@@ -36,7 +36,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _partitionStatus = "No SD card detected";
     [ObservableProperty] private string _dbStats = "";
 
-    public Func<string, string, Task>? ShowAlertAsync { get; set; }
+    public Func<string, string, string?, Task>? ShowAlertAsync { get; set; }
 
     public MainViewModel(LibraryService library, InstallService installer)
     {
@@ -332,7 +332,7 @@ public partial class MainViewModel : ObservableObject
             ? (port.Attr.InstMd ?? port.Attr.Inst)
             : $"{note}\n\nManual instructions:\n{port.Attr.InstMd ?? port.Attr.Inst}";
         if (ShowAlertAsync != null)
-            await ShowAlertAsync($"Install {port.Attr.Title}", body);
+            await ShowAlertAsync($"Install {port.Attr.Title}", body, null);
     }
 
     private static string StoreDisplayName(StoreId id) => id switch

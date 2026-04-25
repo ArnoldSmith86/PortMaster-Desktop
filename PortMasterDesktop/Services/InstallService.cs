@@ -31,7 +31,7 @@ public class InstallService
     private GameFileInstructions? _instructions;
 
     /// <summary>Wired up by the ViewModel to show a modal dialog and await the user clicking OK.</summary>
-    public Func<string, string, Task>? ShowDialogAsync { get; set; }
+    public Func<string, string, string?, Task>? ShowDialogAsync { get; set; }
 
     public InstallService(PortMasterClient portMaster)
     {
@@ -73,7 +73,30 @@ public class InstallService
         string? fileSystem = null,
         Action<string>? stepLog = null)
     {
-        await _portMaster.InstallPortAsync(port, portsPath, progress, ct, stepLog);
+        // ── Phase 1: Download everything to temp (no SD writes) ───────────────
+
+        // Download port ZIP
+        string tempPortFile = await _portMaster.DownloadPortZipAsync(port, progress, ct);
+        var portSizeMb = new FileInfo(tempPortFile).Length / 1048576.0;
+        stepLog?.Invoke($"✅ Downloaded {port.Attr.Title} ({portSizeMb:F1} MB)");
+
+        // Download required runtimes to temp
+        var tempRuntimes = await DownloadRuntimesToTempAsync(port, progress, stepLog, ct);
+
+        // ── Phase 2: Write to SD card ─────────────────────────────────────────
+        stepLog?.Invoke("💾 Writing to SD card…");
+
+        // Extract port ZIP
+        try
+        {
+            progress?.Report(($"Extracting {port.Name}…", 0.9));
+            int fileCount = await PortMasterClient.ExtractPortZipAsync(tempPortFile, portsPath, ct);
+            stepLog?.Invoke($"✅ Extracted {fileCount} file(s) to {portsPath}");
+        }
+        finally
+        {
+            if (File.Exists(tempPortFile)) File.Delete(tempPortFile);
+        }
 
         // Fix permissions for ext4/ext3/overlay (zip extraction doesn't preserve Unix modes)
         if (fileSystem is "ext4" or "ext3" or "overlay" && OperatingSystem.IsLinux())
@@ -84,7 +107,7 @@ public class InstallService
                 var itemPath = Path.Combine(portsPath, item.TrimEnd('/'));
                 if (File.Exists(itemPath) || Directory.Exists(itemPath))
                 {
-                    progress?.Report(($"Fixing permissions: {item}", 0.97));
+                    progress?.Report(($"Fixing permissions: {item}", 0.95));
                     await ChmodAsync(itemPath);
                     chmodCount++;
                 }
@@ -109,8 +132,8 @@ public class InstallService
         if (scripts.Count > 0)
             stepLog?.Invoke($"✅ Injected PortMaster signatures into {sigCount}/{scripts.Count} script(s)");
 
-        // Download required runtimes
-        await DownloadRuntimesAsync(port, portsPath, progress, stepLog, ct);
+        // Copy runtimes from temp to SD libs dir
+        await CopyRuntimesFromTempAsync(tempRuntimes, portsPath, progress, stepLog);
 
         // Merge gamelist.xml
         progress?.Report(("Updating gamelist.xml…", 0.99));
@@ -212,34 +235,37 @@ public class InstallService
         catch { return false; }
     }
 
-    private async Task DownloadRuntimesAsync(
-        Port port,
-        string portsPath,
-        IProgress<(string message, double fraction)>? progress,
-        Action<string>? stepLog,
-        CancellationToken ct)
+    /// <summary>
+    /// Phase 1: Download all required runtimes to system temp. Returns a list of
+    /// (destFileName, info, tempPath) for runtimes that were downloaded or were
+    /// already on the SD card (tempPath is null when already present on SD).
+    /// </summary>
+    private async Task<List<(string key, PortMasterClient.RuntimeInfo info, string? tempPath)>>
+        DownloadRuntimesToTempAsync(
+            Port port,
+            IProgress<(string message, double fraction)>? progress,
+            Action<string>? stepLog,
+            CancellationToken ct)
     {
+        var result = new List<(string, PortMasterClient.RuntimeInfo, string?)>();
         var runtimes = GetRuntimes(port.Attr);
         if (runtimes.Count == 0)
         {
             stepLog?.Invoke("⏭  Runtimes: none required");
-            return;
+            return result;
         }
 
         Dictionary<string, PortMasterClient.RuntimeInfo> catalog;
         try
         {
-            progress?.Report(("Fetching runtime catalog…", 0.97));
+            progress?.Report(("Fetching runtime catalog…", 0.5));
             catalog = await _portMaster.GetRuntimeCatalogAsync(ct);
         }
         catch (Exception ex)
         {
             stepLog?.Invoke($"❌ Runtime catalog fetch failed: {ex.Message}");
-            return;
+            return result;
         }
-
-        var libsDir = Path.Combine(portsPath, "PortMaster", "libs");
-        Directory.CreateDirectory(libsDir);
 
         foreach (var runtime in runtimes)
         {
@@ -252,23 +278,65 @@ public class InstallService
                 continue;
             }
 
-            var destPath = Path.Combine(libsDir, key);
-            if (File.Exists(destPath))
-            {
-                stepLog?.Invoke($"✅ Runtime already present: {info.Name}");
-                continue;
-            }
-
-            progress?.Report(($"Downloading runtime {info.Name}…", 0.97));
+            // We'll check for an existing file on SD during the copy phase — for now
+            // always download to temp so we have it ready before touching the SD card.
             try
             {
-                await DownloadFileAsync(info.Url, destPath, info.Size, progress, ct);
+                var tempPath = await _portMaster.DownloadRuntimeToTempAsync(info, progress, ct);
                 stepLog?.Invoke($"✅ Downloaded runtime {info.Name} ({info.Size / 1048576.0:F1} MB)");
+                result.Add((key, info, tempPath));
             }
             catch (Exception ex)
             {
                 stepLog?.Invoke($"❌ Runtime download failed ({info.Name}): {ex.Message}");
-                if (File.Exists(destPath)) File.Delete(destPath); // remove partial
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Phase 2: Copy downloaded runtimes from temp to the SD card libs dir.
+    /// Skips files already present with the correct size.
+    /// </summary>
+    private static async Task CopyRuntimesFromTempAsync(
+        List<(string key, PortMasterClient.RuntimeInfo info, string? tempPath)> runtimes,
+        string portsPath,
+        IProgress<(string message, double fraction)>? progress,
+        Action<string>? stepLog)
+    {
+        if (runtimes.Count == 0) return;
+
+        var libsDir = Path.Combine(portsPath, "PortMaster", "libs");
+        Directory.CreateDirectory(libsDir);
+
+        foreach (var (key, info, tempPath) in runtimes)
+        {
+            if (tempPath == null) continue;
+
+            var destPath = Path.Combine(libsDir, key);
+
+            // Skip if already present with matching size
+            if (File.Exists(destPath) && new FileInfo(destPath).Length == new FileInfo(tempPath).Length)
+            {
+                stepLog?.Invoke($"✅ Runtime already on SD: {info.Name}");
+                if (File.Exists(tempPath)) File.Delete(tempPath);
+                continue;
+            }
+
+            try
+            {
+                progress?.Report(($"Copying runtime {info.Name} to SD…", 0.98));
+                await Task.Run(() => File.Copy(tempPath, destPath, overwrite: true));
+                stepLog?.Invoke($"✅ Installed runtime {info.Name}");
+            }
+            catch (Exception ex)
+            {
+                stepLog?.Invoke($"❌ Runtime copy failed ({info.Name}): {ex.Message}");
+            }
+            finally
+            {
+                if (File.Exists(tempPath)) File.Delete(tempPath);
             }
         }
     }
@@ -286,33 +354,6 @@ public class InstallService
                 .ToList(),
             _ => []
         };
-    }
-
-    private static async Task DownloadFileAsync(
-        string url, string destPath, long expectedSize,
-        IProgress<(string, double)>? progress, CancellationToken ct)
-    {
-        using var http = new System.Net.Http.HttpClient();
-        http.DefaultRequestHeaders.Add("User-Agent", "PortMaster-Desktop/1.0");
-        http.Timeout = TimeSpan.FromMinutes(10);
-
-        using var response = await http.GetAsync(url, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, ct);
-        response.EnsureSuccessStatusCode();
-
-        var total = response.Content.Headers.ContentLength ?? expectedSize;
-        await using var stream = await response.Content.ReadAsStreamAsync(ct);
-        await using var file = File.Create(destPath);
-
-        var buffer = new byte[131072];
-        long downloaded = 0;
-        int read;
-        while ((read = await stream.ReadAsync(buffer, ct)) > 0)
-        {
-            await file.WriteAsync(buffer.AsMemory(0, read), ct);
-            downloaded += read;
-            if (total > 0)
-                progress?.Report(($"Downloading runtime… {downloaded / 1048576} MB", 0.97 + 0.02 * downloaded / total));
-        }
     }
 
     // -------------------------------------------------------------------------

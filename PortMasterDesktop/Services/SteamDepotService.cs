@@ -64,7 +64,7 @@ public class SteamDepotService
         string? manifestId = null,
         IProgress<(string message, double fraction)>? progress = null,
         CancellationToken ct = default,
-        Func<string, string, Task>? showDialog = null)
+        Func<string, string, string?, Task>? showDialog = null)
     {
         var depotPath = DepotPath(appId, depotId);
 
@@ -85,10 +85,10 @@ public class SteamDepotService
         {
             await showDialog(
                 "Steam Console",
-                $"The Steam console is now open.\n\n" +
-                $"Paste this command and press Enter:\n\n" +
-                $"    {consoleCommand}\n\n" +
-                $"Then click OK — the app will monitor the download and copy the files automatically.");
+                "The Steam console is now open.\n\n" +
+                "Paste the command below and press Enter, then click OK — " +
+                "the app will monitor the download and copy the files automatically.",
+                consoleCommand);
         }
 
         progress?.Report(("Waiting for Steam download to start…", 0.02));

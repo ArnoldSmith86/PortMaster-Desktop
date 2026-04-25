@@ -93,53 +93,55 @@ public class PortMasterClient
     }
 
     // -------------------------------------------------------------------------
-    // Port ZIP install
+    // Port ZIP download + extract (called separately for download-first flow)
     // -------------------------------------------------------------------------
 
-    public async Task InstallPortAsync(
+    /// <summary>
+    /// Downloads the port ZIP to a temp file and returns its path.
+    /// The caller is responsible for deleting the file when done.
+    /// </summary>
+    public async Task<string> DownloadPortZipAsync(
         Port port,
-        string portsPath,
         IProgress<(string message, double fraction)>? progress = null,
-        CancellationToken ct = default,
-        Action<string>? stepLog = null)
+        CancellationToken ct = default)
     {
         var downloadUrl = string.IsNullOrEmpty(port.DownloadUrl)
             ? throw new Exception($"No download URL for {port.Name}")
             : port.DownloadUrl;
 
         progress?.Report(($"Downloading {port.Attr.Title}…", 0));
-
         var tempFile = Path.Combine(Path.GetTempPath(), port.Name);
-        try
-        {
-            await DownloadWithProgressAsync(downloadUrl, tempFile, port.Size, progress, ct);
-            var sizeMb = (new FileInfo(tempFile).Length) / 1048576.0;
-            stepLog?.Invoke($"✅ Downloaded {port.Attr.Title} ({sizeMb:F1} MB)");
+        await DownloadWithProgressAsync(downloadUrl, tempFile, port.Size, progress, ct);
+        return tempFile;
+    }
 
-            progress?.Report(($"Extracting {port.Name}…", 0.95));
-            int fileCount = 0;
-            await Task.Run(() =>
-            {
-                using var zip = System.IO.Compression.ZipFile.OpenRead(tempFile);
-                fileCount = zip.Entries.Count(e => !e.FullName.EndsWith('/'));
-                foreach (var entry in zip.Entries)
-                {
-                    var destPath = Path.GetFullPath(Path.Combine(portsPath, entry.FullName));
-                    if (entry.FullName.EndsWith('/'))
-                        Directory.CreateDirectory(destPath);
-                    else
-                    {
-                        Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
-                        entry.ExtractToFile(destPath, overwrite: true);
-                    }
-                }
-            }, ct);
-            stepLog?.Invoke($"✅ Extracted {fileCount} file(s) to {portsPath}");
-        }
-        finally
+    /// <summary>
+    /// Extracts a previously downloaded port ZIP to the ports directory.
+    /// Returns the number of files extracted.
+    /// </summary>
+    public static async Task<int> ExtractPortZipAsync(
+        string zipPath,
+        string portsPath,
+        CancellationToken ct = default)
+    {
+        int fileCount = 0;
+        await Task.Run(() =>
         {
-            if (File.Exists(tempFile)) File.Delete(tempFile);
-        }
+            using var zip = ZipFile.OpenRead(zipPath);
+            fileCount = zip.Entries.Count(e => !e.FullName.EndsWith('/'));
+            foreach (var entry in zip.Entries)
+            {
+                var destPath = Path.GetFullPath(Path.Combine(portsPath, entry.FullName));
+                if (entry.FullName.EndsWith('/'))
+                    Directory.CreateDirectory(destPath);
+                else
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
+                    entry.ExtractToFile(destPath, overwrite: true);
+                }
+            }
+        }, ct);
+        return fileCount;
     }
 
     // -------------------------------------------------------------------------
@@ -204,6 +206,20 @@ public class PortMasterClient
                 return false;
         }
         return true;
+    }
+
+    /// <summary>
+    /// Downloads a single runtime file to a temp path. Caller is responsible for deleting.
+    /// </summary>
+    public async Task<string> DownloadRuntimeToTempAsync(
+        RuntimeInfo info,
+        IProgress<(string message, double fraction)>? progress = null,
+        CancellationToken ct = default)
+    {
+        var tempPath = Path.Combine(Path.GetTempPath(), $"portmaster_runtime_{Path.GetFileName(info.Url)}");
+        progress?.Report(($"Downloading runtime {info.Name}…", 0.5));
+        await DownloadWithProgressAsync(info.Url, tempPath, info.Size, progress, ct);
+        return tempPath;
     }
 
     // -------------------------------------------------------------------------

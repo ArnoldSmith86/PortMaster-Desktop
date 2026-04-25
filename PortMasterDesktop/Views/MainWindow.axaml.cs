@@ -85,6 +85,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private Task ShowAlertAsync(string title, string message)
-        => new MessageBox(title, message).ShowDialog(this);
+    private Task ShowAlertAsync(string title, string message, string? command = null)
+        => new MessageBox(title, message, command).ShowDialog(this);
 }

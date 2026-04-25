@@ -7,7 +7,7 @@
         CanResize="False"
         SizeToContent="Height">
 
-    <Grid RowDefinitions="Auto,*,Auto" Margin="20">
+    <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="20">
         <TextBlock Grid.Row="0" x:Name="TitleBlock"
                    FontSize="16" FontWeight="Bold" Foreground="#e8e8f4"
                    TextWrapping="Wrap" Margin="0,0,0,12"/>
@@ -16,7 +16,21 @@
                        FontSize="13" Foreground="#b0b0cc"
                        TextWrapping="Wrap" Margin="0,0,0,16"/>
         </ScrollViewer>
-        <Button Grid.Row="2" Content="OK" HorizontalAlignment="Right"
+        <!-- Optional command row — shown when a copyable command is provided -->
+        <Border Grid.Row="2" x:Name="CommandRow" IsVisible="False"
+                Background="#0d0d20" CornerRadius="6" Padding="8,6" Margin="0,0,0,14">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBox Grid.Column="0" x:Name="CommandBox"
+                         IsReadOnly="True"
+                         FontFamily="Monospace" FontSize="12"
+                         Background="Transparent" BorderThickness="0"
+                         Foreground="#a0c0ff" VerticalAlignment="Center"/>
+                <Button Grid.Column="1" Content="Copy" x:Name="CopyButton"
+                        Classes="secondary" Margin="8,0,0,0"
+                        Click="OnCopyClicked"/>
+            </Grid>
+        </Border>
+        <Button Grid.Row="3" Content="OK" HorizontalAlignment="Right"
                 Classes="primary" Click="OnOkClicked"/>
     </Grid>
 
@@ -27,6 +41,12 @@
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Padding" Value="20,8"/>
+        </Style>
+        <Style Selector="Button.secondary">
+            <Setter Property="Background" Value="#2a2a4a"/>
+            <Setter Property="Foreground" Value="#9090c8"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="10,6"/>
         </Style>
     </Window.Styles>
 </Window>
