@@ -86,8 +86,7 @@
             "https://store.steampowered.com/app/499180/Braid_Anniversary_Edition/"
           ],
           "appId": "26800",
-          "compatibility": "incompatible",
-          "incompatibleReason": "Neither Steam version works with this port. The original (app 26800) is Windows-only on Steam. The Anniversary Edition (app 499180) uses a different engine. The port needs the original Linux game from GOG or Humble Bundle.",
+          "compatibility": "unverified",
           "source": "metadata"
         },
         "itch": {
@@ -3575,6 +3574,12 @@
           "compatibility": "compatible",
           "note": "Place the Linux installer or DRM-free zip from GOG in luftrausers/gamedata/.",
           "source": "metadata"
+        },
+        "steam": {
+          "url": "https://store.steampowered.com/app/233150/",
+          "appId": "233150",
+          "compatibility": "unverified",
+          "source": "manual"
         }
       },
       "fileInstructions": [
@@ -3625,6 +3630,12 @@
           "compatibility": "compatible",
           "note": "Download the Linux offline installer from GOG and place it in steamworlddig/installer/. Westonpack runtime must be installed via PortMaster first.",
           "source": "metadata"
+        },
+        "steam": {
+          "url": "https://store.steampowered.com/app/252410/",
+          "appId": "252410",
+          "compatibility": "unverified",
+          "source": "manual"
         }
       },
       "fileInstructions": []
@@ -3637,6 +3648,12 @@
           "compatibility": "compatible",
           "note": "Download the Linux offline installer from GOG and place it in steamworlddig/installer/ (shared with SteamWorld Dig 1 per port instructions). Westonpack runtime must be installed via PortMaster first.",
           "source": "metadata"
+        },
+        "steam": {
+          "url": "https://store.steampowered.com/app/571310/",
+          "appId": "571310",
+          "compatibility": "unverified",
+          "source": "manual"
         }
       },
       "fileInstructions": []
@@ -3649,6 +3666,12 @@
           "compatibility": "compatible",
           "note": "Download the Linux offline installer from GOG and place it in steamworldheist/installer/. Westonpack runtime must be installed via PortMaster first.",
           "source": "metadata"
+        },
+        "steam": {
+          "url": "https://store.steampowered.com/app/322190/",
+          "appId": "322190",
+          "compatibility": "unverified",
+          "source": "manual"
         }
       },
       "fileInstructions": []
@@ -5303,6 +5326,12 @@
           "compatibility": "compatible",
           "note": "Free demo available. May have slowdowns on RK3326 devices.",
           "source": "metadata"
+        },
+        "steam": {
+          "url": "https://store.steampowered.com/app/2280510/Side_Scape/",
+          "appId": "2280510",
+          "compatibility": "unverified",
+          "source": "manual"
         }
       },
       "fileInstructions": [
@@ -12215,6 +12244,12 @@
           "compatibility": "compatible",
           "platform": "windows",
           "source": "inst"
+        },
+        "steam": {
+          "url": "https://store.steampowered.com/app/1456880/ElecHead/",
+          "appId": "1456880",
+          "compatibility": "unverified",
+          "source": "manual"
         }
       },
       "fileInstructions": [
@@ -13219,6 +13254,12 @@
           "platform": "windows",
           "source": "ai",
           "note": "Place game files in ports/goldenhornet/gamedata/."
+        },
+        "steam": {
+          "url": "https://store.steampowered.com/app/739260/",
+          "appId": "739260",
+          "compatibility": "unverified",
+          "source": "metadata"
         }
       },
       "fileInstructions": [
@@ -13480,6 +13521,13 @@
           "compatibility": "compatible",
           "platform": "windows",
           "source": "inst"
+        },
+        "steam": {
+          "url": "https://store.steampowered.com/app/425650/Halloween_Forever/",
+          "appId": "425650",
+          "compatibility": "incompatible",
+          "incompatibleReason": "Steam version will not work with this port.",
+          "source": "metadata"
         }
       },
       "fileInstructions": [
@@ -14278,6 +14326,12 @@
           "compatibility": "compatible",
           "platform": "windows",
           "source": "inst"
+        },
+        "steam": {
+          "url": "https://store.steampowered.com/app/611710/Kaiju_Big_Battel_Fighto_Fantasy/",
+          "appId": "611710",
+          "compatibility": "unverified",
+          "source": "manual"
         }
       },
       "fileInstructions": [
@@ -17423,6 +17477,12 @@
           "platform": "windows",
           "source": "ai",
           "note": "Copy original PC/DOS/Amiga version files to ports/reminiscence/gamedata."
+        },
+        "steam": {
+          "url": "https://store.steampowered.com/app/961620/Flashback/",
+          "appId": "961620",
+          "compatibility": "unverified",
+          "source": "manual"
         }
       },
       "fileInstructions": [
@@ -17595,6 +17655,12 @@
           "platform": "windows",
           "source": "ai",
           "note": "Copy data.win to assets/."
+        },
+        "steam": {
+          "url": "https://store.steampowered.com/app/1322650/",
+          "appId": "1322650",
+          "compatibility": "unverified",
+          "source": "metadata"
         }
       },
       "fileInstructions": [
@@ -19191,6 +19257,12 @@
           "compatibility": "compatible",
           "platform": "windows",
           "source": "inst"
+        },
+        "steam": {
+          "url": "https://store.steampowered.com/app/3095800/",
+          "appId": "3095800",
+          "compatibility": "unverified",
+          "source": "metadata"
         }
       },
       "fileInstructions": [
@@ -20118,6 +20190,12 @@
           "compatibility": "compatible",
           "platform": "windows",
           "source": "inst"
+        },
+        "steam": {
+          "url": "https://store.steampowered.com/app/1872040/Toziuha_Night_Draculas_Revenge/",
+          "appId": "1872040",
+          "compatibility": "compatible",
+          "source": "metadata"
         }
       },
       "fileInstructions": [
@@ -21481,6 +21559,452 @@
           ]
         }
       ]
+    },
+    "arkovstower.zip": {
+      "title": "Arkovs Tower",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/2876720/",
+          "appId": "2876720",
+          "compatibility": "unverified",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "ascentdx.zip": {
+      "title": "Ascent DX",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/3384890/",
+          "appId": "3384890",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "bananaguy2.zip": {
+      "title": "Bananaguy 2",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/2346890/",
+          "appId": "2346890",
+          "compatibility": "unverified",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "bleubayou.zip": {
+      "title": "Bleu Bayou",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/3806790/",
+          "appId": "3806790",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "bloodxthirsty.zip": {
+      "title": "Blood X Thirsty",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/3200160/",
+          "appId": "3200160",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "bstone-aog.zip": {
+      "title": "Blake Stone - Aliens of Gold",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/358190/",
+          "appId": "358190",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "bytepath.zip": {
+      "title": "BYTEPATH",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/760330/",
+          "appId": "760330",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "candleprick.zip": {
+      "title": "Candle Prick",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/1920700/",
+          "appId": "1920700",
+          "compatibility": "unverified",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "cantoi.zip": {
+      "title": "Canto I",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/3096700/",
+          "appId": "3096700",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "cavecrawler2.zip": {
+      "title": "Cave Crawler 2",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/3000490/",
+          "appId": "3000490",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "chargekid.zip": {
+      "title": "Charge Kid",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/1334300/",
+          "appId": "1334300",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "cosmo-engine.zip": {
+      "title": "Cosmo-Engine",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/358250/",
+          "appId": "358250",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "crop_and_claw.zip": {
+      "title": "Crop and Claw",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/2760970/",
+          "appId": "2760970",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "cursedgem.zip": {
+      "title": "Cursed Gem",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/1194480/",
+          "appId": "1194480",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "darkplaces.zip": {
+      "title": "DarkPlaces",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/2310/",
+          "appId": "2310",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "doddgoestothemuseum.zip": {
+      "title": "Dodd Goes to the Museum",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/2247050/",
+          "appId": "2247050",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "gungodz.zip": {
+      "title": "GUN GODZ",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/522940/",
+          "appId": "522940",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "khimera.zip": {
+      "title": "Khimera: Destroy All Monster Girls",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/467380/",
+          "appId": "467380",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "meanderland.zip": {
+      "title": "Meander Land",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/3296110/",
+          "appId": "3296110",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "megaserval.zip": {
+      "title": "Mega Serval",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/2009720/",
+          "appId": "2009720",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "merpinmerpworld.zip": {
+      "title": "Merp in Merpworld",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/3424550/",
+          "appId": "3424550",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "microplatformer.zip": {
+      "title": "Micro Platformer",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/1283130/",
+          "appId": "1283130",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "nubbysnumberfactory.zip": {
+      "title": "Nubby's Number Factory",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/3191030/",
+          "appId": "3191030",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "omnispeak.zip": {
+      "title": "OmniSpeak",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/9180/",
+          "appId": "9180",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "pinballcrush.zip": {
+      "title": "Pinball Crush",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/3683910/",
+          "appId": "3683910",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "riseofthepenguinsgb.zip": {
+      "title": "Rise of the Penguins GB",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/3404520/",
+          "appId": "3404520",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "shatteredpixeldungeon.zip": {
+      "title": "Shattered Pixel Dungeon",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/1769170/",
+          "appId": "1769170",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "simutrans.zip": {
+      "title": "Simutrans",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/434520/",
+          "appId": "434520",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "slashjump.zip": {
+      "title": "Slash/Jump",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/3030210/",
+          "appId": "3030210",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "snout.zip": {
+      "title": "SnOut",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/1602900/",
+          "appId": "1602900",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "supercakeboy.zip": {
+      "title": "Super Cakeboy",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/2319580/",
+          "appId": "2319580",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "swordofjade.zip": {
+      "title": "Sword of Jade",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/1885860/",
+          "appId": "1885860",
+          "compatibility": "incompatible",
+          "source": "metadata",
+          "incompatibleReason": "Steam version is a remake (Sword of Jade: Parallel Dreams) with a different engine; this port uses the original game files which are included."
+        }
+      },
+      "fileInstructions": []
+    },
+    "thedeadprince.zip": {
+      "title": "The Dead Prince",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/1810530/",
+          "appId": "1810530",
+          "compatibility": "unverified",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "therush.zip": {
+      "title": "The Rush",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/2525190/",
+          "appId": "2525190",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "udongeinx.zip": {
+      "title": "Udongein X",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/1819230/",
+          "appId": "1819230",
+          "compatibility": "incompatible",
+          "source": "metadata",
+          "incompatibleReason": "Steam version not compatible with this port."
+        }
+      },
+      "fileInstructions": []
+    },
+    "youhave10s2023.zip": {
+      "title": "You Have 10 Seconds (2023)",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/2390510/",
+          "appId": "2390510",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
+    },
+    "zniwadventure.zip": {
+      "title": "Zniw Adventure",
+      "stores": {
+        "steam": {
+          "url": "https://store.steampowered.com/app/904750/",
+          "appId": "904750",
+          "compatibility": "compatible",
+          "source": "metadata"
+        }
+      },
+      "fileInstructions": []
     }
   }
 }

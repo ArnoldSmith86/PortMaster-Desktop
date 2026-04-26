@@ -14,8 +14,8 @@ DOTNET="$DOTNET_DIR/dotnet"
 APPIMAGETOOL="$TOOLS_DIR/appimagetool"
 
 APP_NAME="PortMasterDesktop"
-APP_VERSION="0.1.0"
 PROJECT="$SCRIPT_DIR/PortMasterDesktop/PortMasterDesktop.csproj"
+APP_VERSION=$(grep -oP '(?<=<Version>)[^<]+' "$PROJECT" 2>/dev/null || echo "0.1.0")
 PUBLISH_DIR="$SCRIPT_DIR/publish/linux"
 APPDIR="$SCRIPT_DIR/AppDir"
 

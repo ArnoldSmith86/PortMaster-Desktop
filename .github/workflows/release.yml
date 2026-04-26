@@ -1,0 +1,156 @@
+name: Release
+
+on:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Compute version tag
+        id: version
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          APP_VERSION=$(grep -oP '(?<=<Version>)[^<]+' PortMasterDesktop/PortMasterDesktop.csproj || echo "0.1.0")
+          echo "tag=v${APP_VERSION}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
+
+      # ── Linux AppImage ────────────────────────────────────────────────────
+
+      - name: Publish linux-x64
+        run: |
+          dotnet publish PortMasterDesktop/PortMasterDesktop.csproj \
+            --framework net9.0 --runtime linux-x64 --self-contained \
+            --configuration Release --output publish/linux \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            --nologo
+
+      - name: Download appimagetool
+        run: |
+          curl -fsSL -o /tmp/appimagetool \
+            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x /tmp/appimagetool
+
+      - name: Package Linux AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          APP=PortMasterDesktop
+          APPDIR=$(mktemp -d)
+
+          mkdir -p "$APPDIR/usr/bin"
+          mkdir -p "$APPDIR/usr/lib/$APP"
+          mkdir -p "$APPDIR/usr/share/applications"
+          mkdir -p "$APPDIR/usr/share/icons/hicolor/256x256/apps"
+
+          cp -r publish/linux/* "$APPDIR/usr/lib/$APP/"
+
+          cat > "$APPDIR/AppRun" << 'APPRUN'
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "$0")")"
+          export LD_LIBRARY_PATH="$HERE/usr/lib/PortMasterDesktop${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          exec "$HERE/usr/lib/PortMasterDesktop/PortMasterDesktop" "$@"
+          APPRUN
+          chmod +x "$APPDIR/AppRun"
+
+          cat > "$APPDIR/$APP.desktop" << DESKTOP
+          [Desktop Entry]
+          Type=Application
+          Name=PortMaster Desktop
+          GenericName=Game Port Installer
+          Comment=Install PortMaster ports from your game library
+          Exec=PortMasterDesktop
+          Icon=portmasterdesktop
+          Terminal=false
+          Categories=Game;
+          Keywords=PortMaster;games;ports;handheld;
+          MimeType=x-scheme-handler/portmasterdesktop;
+          DESKTOP
+          cp "$APPDIR/$APP.desktop" "$APPDIR/usr/share/applications/"
+
+          ICON_SRC="PortMasterDesktop/Resources/AppIcon/portmaster.png"
+          if [[ -f "$ICON_SRC" ]]; then
+            cp "$ICON_SRC" "$APPDIR/portmasterdesktop.png"
+          else
+            # 1×1 placeholder
+            printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xac\x8c\xfc?\x00\x00\x04\x01\x01\x00u\x01\xaa\xce\x00\x00\x00\x00IEND\xaeB`\x82' \
+              > "$APPDIR/portmasterdesktop.png"
+          fi
+          cp "$APPDIR/portmasterdesktop.png" \
+             "$APPDIR/usr/share/icons/hicolor/256x256/apps/portmasterdesktop.png"
+
+          ARCH=x86_64 /tmp/appimagetool "$APPDIR" \
+            "PortMasterDesktop-${{ steps.version.outputs.app_version }}-x86_64.AppImage"
+
+      # ── Windows ───────────────────────────────────────────────────────────
+
+      - name: Publish & package Windows
+        run: |
+          dotnet publish PortMasterDesktop/PortMasterDesktop.csproj \
+            --framework net9.0 --runtime win-x64 --self-contained \
+            --configuration Release --output publish/win-x64 \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            --nologo
+          cp publish/win-x64/PortMasterDesktop.exe \
+            "PortMasterDesktop-${{ steps.version.outputs.app_version }}-windows-x64.exe"
+
+      # ── macOS ─────────────────────────────────────────────────────────────
+
+      - name: Publish & package macOS x64
+        run: |
+          dotnet publish PortMasterDesktop/PortMasterDesktop.csproj \
+            --framework net9.0 --runtime osx-x64 --self-contained \
+            --configuration Release --output publish/osx-x64 \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            --nologo
+          cd publish/osx-x64
+          zip -r "../../PortMasterDesktop-${{ steps.version.outputs.app_version }}-macos-x64.zip" .
+
+      - name: Publish & package macOS arm64
+        run: |
+          dotnet publish PortMasterDesktop/PortMasterDesktop.csproj \
+            --framework net9.0 --runtime osx-arm64 --self-contained \
+            --configuration Release --output publish/osx-arm64 \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            --nologo
+          cd publish/osx-arm64
+          zip -r "../../PortMasterDesktop-${{ steps.version.outputs.app_version }}-macos-arm64.zip" .
+
+      # ── Release ───────────────────────────────────────────────────────────
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: PortMaster Desktop ${{ steps.version.outputs.tag }}
+          body: |
+            Built from commit ${{ github.sha }}
+
+            | File | Platform |
+            |------|----------|
+            | `*-x86_64.AppImage` | Linux x64 |
+            | `*-windows-x64.exe` | Windows x64 |
+            | `*-macos-x64.zip` | macOS Intel |
+            | `*-macos-arm64.zip` | macOS Apple Silicon |
+
+            **macOS note:** right-click → Open the first time to bypass Gatekeeper, or run `xattr -dr com.apple.quarantine PortMasterDesktop` after unzipping.
+          files: |
+            PortMasterDesktop-*.AppImage
+            PortMasterDesktop-*.exe
+            PortMasterDesktop-*.zip
+          fail_on_unmatched_files: true

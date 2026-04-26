@@ -68,8 +68,11 @@ public static class OAuthHelper
         try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
         catch
         {
-            try { Process.Start("xdg-open", url); }
-            catch { /* best effort */ }
+            var launcher = OperatingSystem.IsLinux() ? "xdg-open"
+                         : OperatingSystem.IsMacOS() ? "open"
+                         : null;
+            if (launcher != null)
+                try { Process.Start(launcher, url); } catch { /* best effort */ }
         }
     }
 

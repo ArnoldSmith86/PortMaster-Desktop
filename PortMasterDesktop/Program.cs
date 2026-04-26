@@ -604,10 +604,13 @@ class Program
                     Console.WriteLine("  Opening Steam console…");
                     try
                     {
-                        System.Diagnostics.Process.Start(
-                            new System.Diagnostics.ProcessStartInfo("xdg-open", "steam://open/console")
-                            { UseShellExecute = false,
-                              RedirectStandardOutput = true, RedirectStandardError = true });
+                        var launcher = OperatingSystem.IsLinux() ? "xdg-open" : null;
+                        var psi = launcher != null
+                            ? new System.Diagnostics.ProcessStartInfo(launcher, "steam://open/console")
+                              { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true }
+                            : new System.Diagnostics.ProcessStartInfo("steam://open/console")
+                              { UseShellExecute = true };
+                        System.Diagnostics.Process.Start(psi);
                     }
                     catch { /* ignore — user can open it manually */ }
 
