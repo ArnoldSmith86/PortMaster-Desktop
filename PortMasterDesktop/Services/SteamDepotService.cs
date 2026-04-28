@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Text.RegularExpressions;
 using PortMasterDesktop.Stores;
 
 namespace PortMasterDesktop.Services;
@@ -142,6 +143,118 @@ public class SteamDepotService
         if (DateTime.UtcNow >= deadline) return "Depot download timed out.";
         progress?.Report(($"Download complete — {GetDirectorySize(depotPath) / 1048576.0:F0} MB", 1.0));
         return null;
+    }
+
+    // ── Regular install monitoring ────────────────────────────────────────────
+
+    /// <summary>
+    /// Triggers steam://install/{appId}, then polls until the game is fully installed.
+    /// If the install hasn't started after <paramref name="startTimeoutSeconds"/> seconds,
+    /// shows a reminder dialog and keeps waiting. Returns null on success.
+    /// </summary>
+    public static async Task<string?> RequestAndMonitorInstallAsync(
+        string appId,
+        IProgress<(string message, double fraction)>? progress = null,
+        CancellationToken ct = default,
+        Func<string, string, string?, Task>? showDialog = null,
+        int startTimeoutSeconds = 120)
+    {
+        var openErr = LocalSteamStore.RequestInstall(appId);
+        if (openErr != null) return $"Could not open Steam: {openErr}";
+
+        progress?.Report(("Waiting for Steam install to start…", 0.02));
+
+        var appsDir = FindSteamAppsDirs();
+        var startDeadline = DateTime.UtcNow.AddSeconds(startTimeoutSeconds);
+        bool reminderShown = false;
+
+        // Phase 1: wait for the appmanifest ACF to appear (install acknowledged by Steam)
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (FindAcfForApp(appsDir, appId) != null) break;
+
+            if (!reminderShown && DateTime.UtcNow >= startDeadline)
+            {
+                reminderShown = true;
+                if (showDialog != null)
+                    await showDialog(
+                        "Waiting for Steam",
+                        "Steam was asked to install the game, but the download hasn't started yet.\n\n" +
+                        "Make sure to accept any install prompts in Steam, then click OK to keep waiting.",
+                        null);
+            }
+
+            await Task.Delay(3000, ct);
+        }
+
+        progress?.Report(("Steam is installing the game…", 0.05));
+
+        // Phase 2: wait until StateFlags has the installed bit (4) and the game dir has content
+        var totalDeadline = DateTime.UtcNow.AddHours(2);
+        while (DateTime.UtcNow < totalDeadline)
+        {
+            ct.ThrowIfCancellationRequested();
+            await Task.Delay(5000, ct);
+
+            var acf = FindAcfForApp(appsDir, appId);
+            if (acf == null) continue;
+
+            var (flags, installDir, acfAppsDir) = ParseAcfInstallInfo(acf);
+            if ((flags & 4) != 0 && !string.IsNullOrEmpty(installDir))
+            {
+                var gamePath = Path.Combine(acfAppsDir, "common", installDir);
+                if (DirectoryHasFiles(gamePath)) return null;
+            }
+
+            var downloadedMb = !string.IsNullOrEmpty(installDir)
+                ? GetDirectorySize(Path.Combine(acfAppsDir, "common", installDir)) / 1048576.0
+                : 0;
+            progress?.Report(($"Installing… {downloadedMb:F0} MB", Math.Min(0.05 + downloadedMb / 5000.0, 0.95)));
+        }
+
+        return "Timed out waiting for Steam game installation.";
+    }
+
+    private static List<string> FindSteamAppsDirs()
+    {
+        var dirs = new List<string>();
+        var steamRoot = LocalSteamStore.FindSteamRoot();
+        if (steamRoot == null) return dirs;
+
+        void TryAdd(string d) { if (Directory.Exists(d)) dirs.Add(d); }
+        TryAdd(Path.Combine(steamRoot, "steamapps"));
+
+        var libFolders = Path.Combine(steamRoot, "config", "libraryfolders.vdf");
+        if (File.Exists(libFolders))
+            foreach (Match m in Regex.Matches(File.ReadAllText(libFolders), @"""path""\s*""([^""]+)"""))
+                TryAdd(Path.Combine(m.Groups[1].Value.Replace(@"\\", "/"), "steamapps"));
+
+        return dirs;
+    }
+
+    private static string? FindAcfForApp(IEnumerable<string> appsDirs, string appId)
+    {
+        foreach (var dir in appsDirs)
+        {
+            var acf = Path.Combine(dir, $"appmanifest_{appId}.acf");
+            if (File.Exists(acf)) return acf;
+        }
+        return null;
+    }
+
+    private static (int flags, string installDir, string appsDir) ParseAcfInstallInfo(string acfPath)
+    {
+        try
+        {
+            var text = File.ReadAllText(acfPath);
+            var flags = int.TryParse(
+                Regex.Match(text, @"""StateFlags""\s*""(\d+)""").Groups[1].Value, out var f) ? f : 0;
+            var installDir = Regex.Match(text, @"""installdir""\s*""([^""]+)""").Groups[1].Value;
+            return (flags, installDir, Path.GetDirectoryName(acfPath) ?? "");
+        }
+        catch { return (0, "", Path.GetDirectoryName(acfPath) ?? ""); }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

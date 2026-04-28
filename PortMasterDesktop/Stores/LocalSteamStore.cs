@@ -217,6 +217,42 @@ public class LocalSteamStore : BaseGameStore
         title.StartsWith("Steam VR", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Scans all Steam library folders for an installed game with the given appId.
+    /// Returns null if not found or not fully installed.
+    /// </summary>
+    public static StoreGame? FindInstalledGame(string appId)
+    {
+        var steamRoot = FindSteamRoot();
+        if (steamRoot == null) return null;
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var appsDir = new List<string>();
+
+        void TryAdd(string d)
+        {
+            if (!Directory.Exists(d)) return;
+            var real = RealPath(d);
+            if (seen.Add(real)) appsDir.Add(d);
+        }
+
+        TryAdd(Path.Combine(steamRoot, "steamapps"));
+
+        var libFolders = Path.Combine(steamRoot, "config", "libraryfolders.vdf");
+        if (File.Exists(libFolders))
+            foreach (Match m in Regex.Matches(File.ReadAllText(libFolders), @"""path""\s*""([^""]+)"""))
+                TryAdd(Path.Combine(m.Groups[1].Value.Replace(@"\\", "/"), "steamapps"));
+
+        foreach (var dir in appsDir)
+        {
+            var acf = Path.Combine(dir, $"appmanifest_{appId}.acf");
+            if (!File.Exists(acf)) continue;
+            var game = ParseAcf(acf, dir);
+            if (game?.IsInstalled == true) return game;
+        }
+        return null;
+    }
+
+    /// <summary>
     /// Sends steam://install/{appId} to the running Steam client, prompting it to install the game.
     /// Returns null on success or an error message.
     /// </summary>
