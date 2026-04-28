@@ -237,40 +237,20 @@ public partial class MainViewModel : ObservableObject
         {
             var portPath = ActivePartition.PortsPath;
 
-            if (SelectedGame.InstallState == PortInstallState.NotInstalled)
-                await _installer.InstallPortAsync(SelectedGame.Port, portPath, barProgress,
-                    fileSystem: ActivePartition.FileSystem, stepLog: stepLog);
+            var installError = await _installer.RunInstallAsync(
+                SelectedGame.Port,
+                SelectedGame.InstallState,
+                SelectedGame.OwnedGames,
+                portPath,
+                fileSystem: ActivePartition.FileSystem,
+                progress: barProgress,
+                stepLog: stepLog);
 
-            var localGame = SelectedGame.OwnedGames.FirstOrDefault(g => g.IsInstalled);
-            if (localGame != null && SelectedGame.InstallState != PortInstallState.Ready)
-            {
-                var error = await _installer.InstallGameFilesAsync(
-                    SelectedGame.Port, localGame, portPath, barProgress, stepLog: stepLog);
-                if (error != null)
-                {
-                    hasErrors = true;
-                    LogStep($"⚠️  Game files: {error}");
-                    await ShowManualInstructionsAsync(SelectedGame.Port, error);
-                }
-            }
-            else if (!SelectedGame.Port.Attr.Rtr && SelectedGame.OwnedGames.Count > 0 && localGame == null)
-            {
-                var ownedGame = SelectedGame.OwnedGames.First();
-                var error = await _installer.DownloadAndInstallGameFilesAsync(
-                    SelectedGame.Port, ownedGame, portPath, barProgress, stepLog: stepLog);
-                if (error != null)
-                {
-                    hasErrors = true;
-                    LogStep($"⚠️  Game files: {error}");
-                    await ShowManualInstructionsAsync(SelectedGame.Port, error);
-                }
-            }
-            else if (!SelectedGame.Port.Attr.Rtr && SelectedGame.OwnedGames.Count == 0)
+            if (installError != null)
             {
                 hasErrors = true;
-                LogStep("⚠️  No owned copy found — manual game file installation required");
-                await ShowManualInstructionsAsync(SelectedGame.Port,
-                    "No owned game found in connected stores, or not installed locally.");
+                LogStep($"⚠️  {installError}");
+                await ShowManualInstructionsAsync(SelectedGame.Port, installError);
             }
 
             InstallMessage = hasErrors ? "Done (check log for warnings)" : "Done!";

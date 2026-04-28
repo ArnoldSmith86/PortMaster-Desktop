@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using System.Xml.Linq;
 using PortMasterDesktop.Models;
 using PortMasterDesktop.PortMaster;
+using PortMasterDesktop.Stores;
 
 namespace PortMasterDesktop.Services;
 
@@ -63,43 +64,106 @@ public class InstallService
     }
 
     // -------------------------------------------------------------------------
-    // Port installation
+    // Port installation — main entry point
     // -------------------------------------------------------------------------
 
-    public async Task InstallPortAsync(
+    /// <summary>
+    /// Fully-safe install: all data (port ZIP, runtimes, game files) is obtained
+    /// before anything is written to the SD card.
+    /// Returns null on success or a user-facing error string.
+    /// </summary>
+    public async Task<string?> RunInstallAsync(
         Port port,
+        PortInstallState installState,
+        IReadOnlyList<StoreGame> ownedGames,
         string portsPath,
+        string? fileSystem = null,
         IProgress<(string message, double fraction)>? progress = null,
         CancellationToken ct = default,
-        string? fileSystem = null,
         Action<string>? stepLog = null)
     {
-        // ── Phase 1: Download everything to temp (no SD writes) ───────────────
+        // ── Phase 1: Verify / obtain game source — no SD writes ───────────────
 
-        // Download port ZIP
+        StoreGame? gameSource = null;
+
+        if (!port.Attr.Rtr)
+        {
+            if (ownedGames.Count == 0)
+            {
+                stepLog?.Invoke("⚠️  No owned copy found — manual game file installation required");
+                return "No owned game found in connected stores, or not installed locally.";
+            }
+
+            var localGame = ownedGames.FirstOrDefault(g => g.IsInstalled);
+            var (src, err) = await PrepareGameSourceAsync(
+                port, localGame ?? ownedGames[0], progress, ct, stepLog);
+            if (err != null) return err;
+            gameSource = src;
+        }
+
+        // ── Phase 2: Download port ZIP + runtimes to temp — no SD writes ──────
+
+        TempPortFiles? temp = null;
+        if (installState == PortInstallState.NotInstalled)
+            temp = await DownloadPortToTempAsync(port, progress, stepLog, ct);
+
+        // ── Phase 3: Write everything to SD card ──────────────────────────────
+
+        stepLog?.Invoke("💾 All data ready — writing to SD card…");
+
+        if (temp != null)
+            await WritePortToSdAsync(port, temp, portsPath, fileSystem, progress, stepLog, ct);
+
+        if (gameSource != null && installState != PortInstallState.Ready)
+        {
+            var gameErr = await InstallGameFilesAsync(port, gameSource, portsPath, progress, ct, stepLog);
+            if (gameErr != null) return gameErr;
+        }
+
+        return null;
+    }
+
+    // -------------------------------------------------------------------------
+    // Port download + write (used by RunInstallAsync and InstallPortAsync)
+    // -------------------------------------------------------------------------
+
+    private record TempPortFiles(
+        string PortFile,
+        List<(string key, PortMasterClient.RuntimeInfo info, string? tempPath)> Runtimes);
+
+    private async Task<TempPortFiles> DownloadPortToTempAsync(
+        Port port,
+        IProgress<(string message, double fraction)>? progress,
+        Action<string>? stepLog,
+        CancellationToken ct)
+    {
         string tempPortFile = await _portMaster.DownloadPortZipAsync(port, progress, ct);
         var portSizeMb = new FileInfo(tempPortFile).Length / 1048576.0;
         stepLog?.Invoke($"✅ Downloaded {port.Attr.Title} ({portSizeMb:F1} MB)");
-
-        // Download required runtimes to temp
         var tempRuntimes = await DownloadRuntimesToTempAsync(port, progress, stepLog, ct);
+        return new TempPortFiles(tempPortFile, tempRuntimes);
+    }
 
-        // ── Phase 2: Write to SD card ─────────────────────────────────────────
-        stepLog?.Invoke("💾 Writing to SD card…");
-
-        // Extract port ZIP
+    private async Task WritePortToSdAsync(
+        Port port,
+        TempPortFiles temp,
+        string portsPath,
+        string? fileSystem,
+        IProgress<(string message, double fraction)>? progress,
+        Action<string>? stepLog,
+        CancellationToken ct)
+    {
         try
         {
             progress?.Report(($"Extracting {port.Name}…", 0.9));
-            int fileCount = await PortMasterClient.ExtractPortZipAsync(tempPortFile, portsPath, ct);
+            int fileCount = await PortMasterClient.ExtractPortZipAsync(temp.PortFile, portsPath, ct);
             stepLog?.Invoke($"✅ Extracted {fileCount} file(s) to {portsPath}");
         }
         finally
         {
-            if (File.Exists(tempPortFile)) File.Delete(tempPortFile);
+            if (File.Exists(temp.PortFile)) File.Delete(temp.PortFile);
         }
 
-        // Fix permissions for ext4/ext3/overlay (zip extraction doesn't preserve Unix modes)
         if (fileSystem is "ext4" or "ext3" or "overlay" && OperatingSystem.IsLinux())
         {
             int chmodCount = 0;
@@ -120,7 +184,6 @@ public class InstallService
             stepLog?.Invoke($"⏭  Permissions: skipped ({fileSystem ?? "unknown"} filesystem)");
         }
 
-        // Inject PortMaster signature into top-level .sh scripts
         var scripts = port.Items.Concat(port.ItemsOpt)
             .Where(i => i.EndsWith(".sh", StringComparison.OrdinalIgnoreCase))
             .ToList();
@@ -133,16 +196,124 @@ public class InstallService
         if (scripts.Count > 0)
             stepLog?.Invoke($"✅ Injected PortMaster signatures into {sigCount}/{scripts.Count} script(s)");
 
-        // Copy runtimes from temp to SD libs dir
-        await CopyRuntimesFromTempAsync(tempRuntimes, portsPath, progress, stepLog);
+        await CopyRuntimesFromTempAsync(temp.Runtimes, portsPath, progress, stepLog);
 
-        // Merge gamelist.xml
         progress?.Report(("Updating gamelist.xml…", 0.99));
         var gamelistErr = MergeGamelist(portsPath, port);
         if (gamelistErr == null)
             stepLog?.Invoke("✅ Updated gamelist.xml");
         else
             stepLog?.Invoke($"❌ gamelist.xml update failed: {gamelistErr}");
+    }
+
+    // -------------------------------------------------------------------------
+    // Game source preparation — no SD writes
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Verifies a locally installed game or obtains game data via depot/Steam install.
+    /// Returns the resolved StoreGame to pass to InstallGameFilesAsync, or an error string.
+    /// Never writes to the SD card.
+    /// </summary>
+    private async Task<(StoreGame? source, string? error)> PrepareGameSourceAsync(
+        Port port,
+        StoreGame ownedGame,
+        IProgress<(string message, double fraction)>? progress,
+        CancellationToken ct,
+        Action<string>? stepLog)
+    {
+        if (ownedGame.IsInstalled)
+        {
+            if (string.IsNullOrEmpty(ownedGame.InstallPath) || !Directory.Exists(ownedGame.InstallPath))
+            {
+                var msg = $"Game install path not found: {ownedGame.InstallPath}";
+                stepLog?.Invoke($"❌ {msg}");
+                return (null, msg + "\nPlease copy files manually according to the port instructions.");
+            }
+            stepLog?.Invoke($"✅ Game source verified: {ownedGame.InstallPath}");
+            return (ownedGame, null);
+        }
+
+        var instr = await LoadInstructionsAsync();
+        if (!instr.Ports.TryGetValue(port.Name, out var portInst))
+            return (null, $"Please install {port.Attr.Title} locally via {ownedGame.Store}, then try again.");
+
+        var storeKey = ownedGame.Store.ToString().ToLowerInvariant();
+        var storeInfo = portInst.Stores?.GetValueOrDefault(storeKey);
+
+        if (storeInfo?.Compatibility == "incompatible")
+            return (null, storeInfo.IncompatibleReason
+                ?? $"The {ownedGame.Store} version of this game is not compatible with this port.");
+
+        if (ownedGame.Store == StoreId.Steam)
+        {
+            var depotInfo = storeInfo?.SteamDepot;
+            var appId = storeInfo?.AppId ?? ownedGame.Id;
+
+            if (depotInfo?.DepotId == null)
+            {
+                if (string.IsNullOrEmpty(appId))
+                    return (null, $"Please install {port.Attr.Title} via Steam, then try again.");
+
+                stepLog?.Invoke($"⏳ Asking Steam to install app {appId}…");
+                progress?.Report(("Asking Steam to install the game…", 0.01));
+
+                var installErr = await SteamDepotService.RequestAndMonitorInstallAsync(
+                    appId, progress, ct, showDialog: ShowDialogAsync);
+                if (installErr != null) return (null, installErr);
+
+                var fresh = LocalSteamStore.FindInstalledGame(appId);
+                if (fresh?.InstallPath == null || !Directory.Exists(fresh.InstallPath))
+                    return (null, "Game installed but install path could not be found. Please try again.");
+
+                stepLog?.Invoke($"✅ Steam installation complete — {fresh.InstallPath}");
+                return (fresh, null);
+            }
+
+            var depotPath = SteamDepotService.DepotPath(appId, depotInfo.DepotId);
+            bool depotReady = Directory.Exists(depotPath) &&
+                Directory.EnumerateFiles(depotPath, "*", SearchOption.AllDirectories).Any(
+                    f => !Path.GetFileName(f).StartsWith('.'));
+
+            if (!depotReady)
+            {
+                stepLog?.Invoke("⏳ Opening Steam console…");
+                var depotErr = await new SteamDepotService().DownloadDepotViaLocalSteamAsync(
+                    appId, depotInfo.DepotId, depotInfo.ManifestId, progress, ct,
+                    showDialog: ShowDialogAsync);
+                if (depotErr != null) return (null, depotErr);
+                stepLog?.Invoke("✅ Steam depot downloaded");
+            }
+            else
+            {
+                stepLog?.Invoke("✅ Steam depot already present");
+                progress?.Report(("Depot ready — preparing to copy files…", 0.5));
+            }
+
+            return (new StoreGame
+            {
+                Store = StoreId.Steam, Id = appId, Title = port.Attr.Title,
+                IsInstalled = true, InstallPath = depotPath
+            }, null);
+        }
+
+        return (null, $"Please install {port.Attr.Title} locally via {ownedGame.Store}, then try again.");
+    }
+
+    // -------------------------------------------------------------------------
+    // Legacy convenience wrapper (used by tests / future callers)
+    // -------------------------------------------------------------------------
+
+    public async Task InstallPortAsync(
+        Port port,
+        string portsPath,
+        IProgress<(string message, double fraction)>? progress = null,
+        CancellationToken ct = default,
+        string? fileSystem = null,
+        Action<string>? stepLog = null)
+    {
+        var temp = await DownloadPortToTempAsync(port, progress, stepLog, ct);
+        await WritePortToSdAsync(port, temp, portsPath, fileSystem, progress, stepLog, ct);
     }
 
     /// <summary>
@@ -459,7 +630,25 @@ public class InstallService
             var appId = storeInfo?.AppId ?? "";
 
             if (depotInfo?.DepotId == null)
-                return $"Please install {port.Attr.Title} via Steam, then click Install again.";
+            {
+                var installAppId = storeInfo?.AppId ?? ownedGame.Id;
+                if (string.IsNullOrEmpty(installAppId))
+                    return $"Please install {port.Attr.Title} via Steam, then click Install again.";
+
+                stepLog?.Invoke($"⏳ Asking Steam to install app {installAppId}…");
+                progress?.Report(("Asking Steam to install the game…", 0.01));
+
+                var installErr = await SteamDepotService.RequestAndMonitorInstallAsync(
+                    installAppId, progress, ct, showDialog: ShowDialogAsync);
+                if (installErr != null) return installErr;
+
+                var fresh = LocalSteamStore.FindInstalledGame(installAppId);
+                if (fresh?.InstallPath == null || !Directory.Exists(fresh.InstallPath))
+                    return "Game installed but install path could not be found. Please try again.";
+
+                stepLog?.Invoke($"✅ Steam installation complete — {fresh.InstallPath}");
+                return await InstallGameFilesAsync(port, fresh, portsPath, progress, ct, stepLog);
+            }
 
             var depotPath = SteamDepotService.DepotPath(appId, depotInfo.DepotId);
             bool depotReady = Directory.Exists(depotPath) &&
