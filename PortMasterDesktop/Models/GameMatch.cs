@@ -1,3 +1,5 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+
 namespace PortMasterDesktop.Models;
 
 public enum PortInstallState
@@ -26,7 +28,7 @@ public enum StoreMatchCompatibility
 /// An owned game from a store, optionally paired with a PortMaster port.
 /// Port is null for owned games that have no matching PortMaster port.
 /// </summary>
-public class GameMatch
+public partial class GameMatch : ObservableObject
 {
     public Port? Port { get; set; }
     public List<StoreGame> OwnedGames { get; set; } = [];
@@ -36,6 +38,11 @@ public class GameMatch
 
     /// <summary>Human-readable reason for incompatibility, when StoreCompat == Incompatible.</summary>
     public string? IncompatibleReason { get; set; }
+
+    /// <summary>Portrait cover fetched from SteamGridDB in the background; takes priority over store cover.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayCoverUrl))]
+    private string? _sgdbCoverUrl;
 
     public bool HasPort => Port != null;
     public bool IsRtr => Port?.Attr.Rtr ?? false;
@@ -59,9 +66,11 @@ public class GameMatch
         ?? OwnedGames.FirstOrDefault()?.Title
         ?? "";
 
-    // Cover comes from the store game only
+    // SteamGridDB cover takes priority; fall back to store-provided cover
     public string DisplayCoverUrl =>
-        OwnedGames.FirstOrDefault(g => !string.IsNullOrEmpty(g.CoverUrl))?.CoverUrl ?? "";
+        SgdbCoverUrl
+        ?? OwnedGames.FirstOrDefault(g => !string.IsNullOrEmpty(g.CoverUrl))?.CoverUrl
+        ?? "";
 
     public long OwnedGameSizeBytes =>
         OwnedGames.Where(g => g.InstallSizeBytes > 0).Sum(g => g.InstallSizeBytes);

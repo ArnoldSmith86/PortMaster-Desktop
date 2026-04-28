@@ -338,7 +338,7 @@ class Program
             var partSvc = new PartitionService();
             var stores = new List<IGameStore> { new LocalSteamStore(cache), new GogStore(cache) };
             var installSvc = new InstallService(pm);
-            var libSvc = new LibraryService(stores, pm, partSvc, installSvc, new SteamGridDbService(cache));
+            var libSvc = new LibraryService(stores, pm, partSvc, installSvc);
             Action<string> progress = msg => Console.Write($"\r  {msg,-60}");
             var (matches, partitions, storeCounts) = await libSvc.LoadAsync(forceRefresh, progress);
             Console.WriteLine();
@@ -760,6 +760,31 @@ class Program
                     if (err != null) Warn($"  {err}");
                     else Ok($"  Done → {depotPath}");
                 }
+            }
+        }
+
+        // ── SteamGridDB cover test ────────────────────────────────────────────
+        if (args.Contains("--sgdb"))
+        {
+            // Test two games: Hammerwatch (no CDN portrait, SteamGridDB should fill in) and Braid
+            var sgdb = new SteamGridDbService(cache);
+            foreach (var (title, appId, storeId) in new (string, string, StoreId)[]
+            {
+                ("Hammerwatch", "239070", StoreId.Steam),
+                ("Braid",       "26800",  StoreId.Steam),
+            })
+            {
+                Console.WriteLine($"\n[SteamGridDB Cover Test — {title} ({storeId} {appId})]");
+                cache.Invalidate($"sgdb_{storeId}_{appId}");
+                var fakeMatch = new GameMatch
+                {
+                    OwnedGames = [new StoreGame { Store = storeId, Id = appId, Title = title, CoverUrl = "" }],
+                };
+                await sgdb.EnrichMatchesAsync([fakeMatch]);
+                if (!string.IsNullOrEmpty(fakeMatch.SgdbCoverUrl))
+                    Ok($"  Cover URL: {fakeMatch.SgdbCoverUrl}");
+                else
+                    Warn("  No cover returned.");
             }
         }
 

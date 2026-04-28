@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PortMasterDesktop.Models;
@@ -15,6 +16,7 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly LibraryService _library;
     private readonly InstallService _installer;
+    private readonly SteamGridDbService _steamGridDb;
 
     private IReadOnlyList<GameMatch> _allMatches = [];
 
@@ -38,10 +40,11 @@ public partial class MainViewModel : ObservableObject
 
     public Func<string, string, string?, Task>? ShowAlertAsync { get; set; }
 
-    public MainViewModel(LibraryService library, InstallService installer)
+    public MainViewModel(LibraryService library, InstallService installer, SteamGridDbService steamGridDb)
     {
         _library = library;
         _installer = installer;
+        _steamGridDb = steamGridDb;
     }
 
     // ── Computed properties ───────────────────────────────────────────────────
@@ -149,6 +152,8 @@ public partial class MainViewModel : ObservableObject
                 PartitionStatus = "No SD card detected — plug in to enable install";
             }
             ApplyFilter();
+            _ = _steamGridDb.EnrichMatchesAsync(_allMatches,
+                setUrl: (m, u) => Dispatcher.UIThread.Post(() => m.SgdbCoverUrl = u));
 
             var withPort = _allMatches.Count(m => m.HasPort && m.HasOwnedGame);
             var storeInfo = storeCounts.Count > 0

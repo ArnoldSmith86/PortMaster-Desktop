@@ -5,11 +5,6 @@ using PortMasterDesktop.Models;
 
 namespace PortMasterDesktop.Services;
 
-/// <summary>
-/// Fetches 600×900 portrait grid images from SteamGridDB for games that don't
-/// already have one. Results are cached to disk so subsequent loads are free.
-/// Does nothing when the API key is not configured.
-/// </summary>
 public class SteamGridDbService
 {
     private static readonly HttpClient Http = new();
@@ -23,21 +18,40 @@ public class SteamGridDbService
     }
 
     /// <summary>
-    /// Updates CoverUrl in-place for every game in the list that needs a portrait cover,
-    /// using at most 3 concurrent SteamGridDB requests.
+    /// Enriches SgdbCoverUrl for matches whose owned games don't already have a local portrait.
+    /// Runs up to 3 requests concurrently.
+    /// <para>Pass <paramref name="setUrl"/> to control how the result is applied — e.g. dispatch
+    /// to the UI thread when calling from a ViewModel. Defaults to a direct assignment.</para>
     /// </summary>
-    public async Task EnrichCoversAsync(IEnumerable<StoreGame> games, CancellationToken ct = default)
+    public async Task EnrichMatchesAsync(
+        IEnumerable<GameMatch> matches,
+        Action<GameMatch, string>? setUrl = null,
+        CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(_apiKey)) return;
 
+        setUrl ??= static (m, u) => m.SgdbCoverUrl = u;
+
+        var toEnrich = matches
+            .Where(m => m.OwnedGames.Any(NeedsPortraitCover))
+            .ToList();
+        if (toEnrich.Count == 0) return;
+
         var sem = new SemaphoreSlim(3);
-        await Task.WhenAll(games.Select(async game =>
+        await Task.WhenAll(toEnrich.Select(async match =>
         {
             await sem.WaitAsync(ct);
             try
             {
-                var url = await TryGetGridCoverAsync(game.Store, game.Id, ct);
-                if (!string.IsNullOrEmpty(url)) game.CoverUrl = url;
+                foreach (var game in match.OwnedGames.Where(NeedsPortraitCover))
+                {
+                    var url = await TryGetGridCoverAsync(game.Store, game.Id, ct);
+                    if (!string.IsNullOrEmpty(url))
+                    {
+                        setUrl(match, url);
+                        break;
+                    }
+                }
             }
             finally { sem.Release(); }
         }));
@@ -74,6 +88,17 @@ public class SteamGridDbService
             return url;
         }
         catch { return null; }
+    }
+
+    private static bool NeedsPortraitCover(StoreGame game)
+    {
+        var url = game.CoverUrl;
+        if (string.IsNullOrEmpty(url)) return true;
+        // A local file:// path means Steam has cached the portrait on disk — we know it exists.
+        // CDN URLs (even library_600x900_2x) can 404 for older games, so we still try SteamGridDB.
+        if (url.StartsWith("file://", StringComparison.OrdinalIgnoreCase)) return false;
+        if (url.Contains("BoxTall")) return false; // Epic tall key art
+        return true;
     }
 
     private static string? ToPlatform(StoreId store) => store switch
