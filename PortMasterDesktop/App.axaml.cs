@@ -47,6 +47,7 @@ public partial class App : Application
         services.AddSingleton<IGameStore, HumbleStore>();
 
         services.AddSingleton<SteamDepotService>();
+        services.AddSingleton<SteamGridDbService>();
         services.AddSingleton<LibraryService>();
 
         services.AddTransient<MainViewModel>();

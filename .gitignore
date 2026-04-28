@@ -25,6 +25,9 @@ Thumbs.db
 *.nupkg
 *.snupkg
 
+# Local secrets (never commit — see secrets.env.template)
+secrets.env
+
 # Claude Code session data
 .claude/
 

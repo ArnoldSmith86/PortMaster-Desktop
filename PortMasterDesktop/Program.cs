@@ -338,7 +338,7 @@ class Program
             var partSvc = new PartitionService();
             var stores = new List<IGameStore> { new LocalSteamStore(cache), new GogStore(cache) };
             var installSvc = new InstallService(pm);
-            var libSvc = new LibraryService(stores, pm, partSvc, installSvc);
+            var libSvc = new LibraryService(stores, pm, partSvc, installSvc, new SteamGridDbService(cache));
             Action<string> progress = msg => Console.Write($"\r  {msg,-60}");
             var (matches, partitions, storeCounts) = await libSvc.LoadAsync(forceRefresh, progress);
             Console.WriteLine();

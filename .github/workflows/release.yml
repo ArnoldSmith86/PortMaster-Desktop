@@ -29,6 +29,8 @@ jobs:
       # ── Linux AppImage ────────────────────────────────────────────────────
 
       - name: Publish linux-x64
+        env:
+          STEAMGRIDDB_API_KEY: ${{ secrets.STEAMGRIDDB_API_KEY }}
         run: |
           dotnet publish PortMasterDesktop/PortMasterDesktop.csproj \
             --framework net9.0 --runtime linux-x64 --self-contained \
@@ -97,6 +99,8 @@ jobs:
       # ── Windows ───────────────────────────────────────────────────────────
 
       - name: Publish & package Windows
+        env:
+          STEAMGRIDDB_API_KEY: ${{ secrets.STEAMGRIDDB_API_KEY }}
         run: |
           dotnet publish PortMasterDesktop/PortMasterDesktop.csproj \
             --framework net9.0 --runtime win-x64 --self-contained \
@@ -110,6 +114,8 @@ jobs:
       # ── macOS ─────────────────────────────────────────────────────────────
 
       - name: Publish & package macOS x64
+        env:
+          STEAMGRIDDB_API_KEY: ${{ secrets.STEAMGRIDDB_API_KEY }}
         run: |
           dotnet publish PortMasterDesktop/PortMasterDesktop.csproj \
             --framework net9.0 --runtime osx-x64 --self-contained \
@@ -121,6 +127,8 @@ jobs:
           zip -r "../../PortMasterDesktop-${{ steps.version.outputs.app_version }}-macos-x64.zip" .
 
       - name: Publish & package macOS arm64
+        env:
+          STEAMGRIDDB_API_KEY: ${{ secrets.STEAMGRIDDB_API_KEY }}
         run: |
           dotnet publish PortMasterDesktop/PortMasterDesktop.csproj \
             --framework net9.0 --runtime osx-arm64 --self-contained \

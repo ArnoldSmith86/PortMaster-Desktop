@@ -29,6 +29,26 @@
     <PackageReference Include="SteamKit2" Version="3.0.0" />
   </ItemGroup>
 
+  <!-- Generate Secrets.g.cs from STEAMGRIDDB_API_KEY env var before compile.
+       The file lands in obj/ and is never committed. -->
+  <Target Name="GenerateSecrets" BeforeTargets="CoreCompile">
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <ItemGroup>
+      <_SecretsLines Include="// &lt;auto-generated/&gt; — do not edit" />
+      <_SecretsLines Include="namespace PortMasterDesktop%3B" />
+      <_SecretsLines Include="internal static class Secrets {" />
+      <_SecretsLines Include="    public const string SteamGridDbApiKey = &quot;$(STEAMGRIDDB_API_KEY)&quot;%3B" />
+      <_SecretsLines Include="}" />
+    </ItemGroup>
+    <WriteLinesToFile
+      File="$(IntermediateOutputPath)Secrets.g.cs"
+      Lines="@(_SecretsLines)"
+      Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)Secrets.g.cs" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <!-- Bundled game file instructions -->
     <EmbeddedResource Include="PortMaster/GameFileInstructions.json" />

@@ -10,17 +10,20 @@ public class LibraryService
     private readonly PortMasterClient _portMaster;
     private readonly PartitionService _partitionService;
     private readonly InstallService _installService;
+    private readonly SteamGridDbService _steamGridDb;
 
     public LibraryService(
         IEnumerable<IGameStore> stores,
         PortMasterClient portMaster,
         PartitionService partitionService,
-        InstallService installService)
+        InstallService installService,
+        SteamGridDbService steamGridDb)
     {
         _stores = stores;
         _portMaster = portMaster;
         _partitionService = partitionService;
         _installService = installService;
+        _steamGridDb = steamGridDb;
     }
 
     public async Task<(IReadOnlyList<GameMatch> matches,
@@ -192,7 +195,25 @@ public class LibraryService
             }
         }
 
+        // Enrich cover images from SteamGridDB for games that don't already have a 600×900 portrait
+        var toEnrich = matches.SelectMany(m => m.OwnedGames).Where(NeedsPortraitCover).ToList();
+        if (toEnrich.Count > 0)
+        {
+            progress?.Invoke("Fetching covers from SteamGridDB…");
+            await _steamGridDb.EnrichCoversAsync(toEnrich, ct);
+        }
+
         return (matches, partitions, storeCounts);
+    }
+
+    private static bool NeedsPortraitCover(StoreGame game)
+    {
+        var url = game.CoverUrl;
+        if (string.IsNullOrEmpty(url)) return true;
+        if (url.Contains("library_600x900")) return false;    // Steam CDN portrait
+        if (url.StartsWith("file://", StringComparison.OrdinalIgnoreCase)) return false; // local Steam cache
+        if (url.Contains("BoxTall")) return false;             // Epic tall key art
+        return true;
     }
 
     private static PortInstallState ComputeInstallState(Port port, PartitionInfo? partition)

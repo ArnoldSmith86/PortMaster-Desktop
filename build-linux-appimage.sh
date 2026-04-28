@@ -51,6 +51,14 @@ fi
 
 echo "▶ .NET version: $("$DOTNET" --version)"
 
+# ─── secrets ─────────────────────────────────────────────────────────────────
+if [[ -f "$SCRIPT_DIR/secrets.env" ]]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "$SCRIPT_DIR/secrets.env"
+    set +a
+fi
+
 # ─── build ────────────────────────────────────────────────────────────────────
 echo "▶ Publishing $APP_NAME $APP_VERSION (net9.0, linux-x64)…"
 "$DOTNET" publish "$PROJECT" \
