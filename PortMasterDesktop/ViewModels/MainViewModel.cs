@@ -324,14 +324,19 @@ public partial class MainViewModel : ObservableObject
     {
         const int minTileWidth = 140;
         const int maxTileWidth = 200;
-        const int margin = 8;
+        const int itemMargin = 4;  // Margin around each card (both sides)
+        const int containerMargin = 8;  // Outer margin
+
+        // Effective width after removing container margins
+        double effectiveWidth = availableWidth - 2 * containerMargin;
 
         // Calculate how many tiles fit
-        int columns = (int)((availableWidth - margin) / (minTileWidth + 2 * margin));
+        int columns = (int)((effectiveWidth + 2 * itemMargin) / (minTileWidth + 2 * itemMargin));
         columns = Math.Max(1, columns);
 
-        // Distribute width evenly across columns
-        double tileWidth = (availableWidth - margin) / columns - 2 * margin;
+        // Distribute width evenly across columns, accounting for all margins
+        // Formula: (effectiveWidth - margins) / columns
+        double tileWidth = (effectiveWidth - (columns - 1) * 2 * itemMargin) / columns - 2 * itemMargin;
         tileWidth = Math.Min(maxTileWidth, Math.Max(minTileWidth, tileWidth));
 
         TileWidth = tileWidth;

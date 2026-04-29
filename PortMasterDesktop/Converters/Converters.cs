@@ -98,3 +98,13 @@ public class PartitionStatusColorConverter : IValueConverter
     public object ConvertBack(object? v, Type t, object? p, CultureInfo c)
         => throw new NotSupportedException();
 }
+
+public class WidthToHeightConverter : IValueConverter
+{
+    public static readonly WidthToHeightConverter Instance = new();
+    // Convert width to height maintaining 2:3 portrait aspect ratio (height = width * 1.5)
+    public object Convert(object? v, Type t, object? p, CultureInfo c)
+        => v is double w && w > 0 ? w * 1.5 : 240.0;
+    public object ConvertBack(object? v, Type t, object? p, CultureInfo c)
+        => throw new NotSupportedException();
+}
