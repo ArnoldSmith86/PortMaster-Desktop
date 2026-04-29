@@ -81,6 +81,15 @@ public partial class MainViewModel : ObservableObject
         {
             _usePortMasterImages = SettingsVm.UsePortMasterImages;
 
+            // If using PortMaster images and we haven't loaded them yet, fetch in background
+            if (SettingsVm.UsePortMasterImages && string.IsNullOrEmpty(_portMasterImagesPath))
+            {
+                _ = Task.Run(async () =>
+                {
+                    _portMasterImagesPath = await _portMasterImages.EnsureImagesAsync() ?? "";
+                });
+            }
+
             // Prefer downloaded images, fallback to SD card if available
             var imagesPath = _portMasterImagesPath;
             if (string.IsNullOrEmpty(imagesPath) && ActivePartition != null)
@@ -195,16 +204,6 @@ public partial class MainViewModel : ObservableObject
         StatusMessage = "Loading…";
         try
         {
-            // Download PortMaster images in background only if using PortMaster mode or RTR filter
-            if (SettingsVm?.UsePortMasterImages == true || ActiveFilter == LibraryFilter.ReadyToRun)
-            {
-                _ = Task.Run(async () =>
-                {
-                    _portMasterImagesPath = await _portMasterImages.EnsureImagesAsync(
-                        msg => StatusMessage = msg) ?? "";
-                });
-            }
-
             var (matches, partitions, storeCounts) = await _library.LoadAsync(forceRefresh,
                 msg => StatusMessage = msg);
             _allMatches = matches;
@@ -441,6 +440,15 @@ public partial class MainViewModel : ObservableObject
         // Force PortMaster images for ReadyToRun tab
         if (ActiveFilter == LibraryFilter.ReadyToRun)
         {
+            // Ensure images are available for RTR tab
+            if (string.IsNullOrEmpty(_portMasterImagesPath))
+            {
+                _ = Task.Run(async () =>
+                {
+                    _portMasterImagesPath = await _portMasterImages.EnsureImagesAsync() ?? "";
+                });
+            }
+
             foreach (var game in games)
                 game.UsePortMasterImages = true;
         }
