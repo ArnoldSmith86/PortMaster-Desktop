@@ -15,13 +15,24 @@ public partial class StoreAccountItem : ObservableObject
     [ObservableProperty] private bool _isAuthenticated;
     [ObservableProperty] private string _accountName = "";
     [ObservableProperty] private bool _isBusy;
+    [ObservableProperty] private string _lastError = "";
 
     public StoreAccountItem(IGameStore store) => Store = store;
 
     public async Task RefreshAsync()
     {
-        IsAuthenticated = await Store.IsAuthenticatedAsync();
-        AccountName = IsAuthenticated ? (await Store.GetAccountNameAsync() ?? "") : "";
+        try
+        {
+            IsAuthenticated = await Store.IsAuthenticatedAsync();
+            AccountName = IsAuthenticated ? (await Store.GetAccountNameAsync() ?? "") : "";
+            // Successful refresh clears any prior error
+            if (!string.IsNullOrEmpty(Store.LastError)) Store.ClearError();
+        }
+        catch (Exception ex)
+        {
+            Store.RecordError(ex.Message);
+        }
+        LastError = Store.LastError ?? "";
     }
 
     [RelayCommand]
@@ -34,9 +45,11 @@ public partial class StoreAccountItem : ObservableObject
             {
                 IsAuthenticated = true;
                 AccountName = await Store.GetAccountNameAsync() ?? "";
+                Store.ClearError();
+                LastError = "";
             }
         }
-        catch { /* auth failure — store returns false, exceptions shouldn't escape */ }
+        catch (Exception ex) { Store.RecordError(ex.Message); LastError = Store.LastError ?? ""; }
         finally { IsBusy = false; }
     }
 
@@ -49,6 +62,8 @@ public partial class StoreAccountItem : ObservableObject
             await Store.LogoutAsync();
             IsAuthenticated = false;
             AccountName = "";
+            Store.ClearError();
+            LastError = "";
         }
         finally { IsBusy = false; }
     }
@@ -62,7 +77,10 @@ public partial class StoreAccountItem : ObservableObject
         {
             await Store.AuthenticateAsync();
             AccountName = await Store.GetAccountNameAsync() ?? "";
+            Store.ClearError();
+            LastError = "";
         }
+        catch (Exception ex) { Store.RecordError(ex.Message); LastError = Store.LastError ?? ""; }
         finally { IsBusy = false; }
     }
 }

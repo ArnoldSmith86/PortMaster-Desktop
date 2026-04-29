@@ -30,19 +30,29 @@ public class SteamGridDbService
     /// cache directory so AsyncImageLoader never re-downloads them.
     /// Pass <paramref name="setUrl"/> to dispatch updates to the UI thread from a ViewModel.
     /// </summary>
+    private DateTime? _rateLimitedUntil;
+
     public async Task EnrichMatchesAsync(
         IEnumerable<GameMatch> matches,
         Action<GameMatch, string>? setUrl = null,
         CancellationToken ct = default,
         bool forceRefresh = false)
     {
-        // First, restore any previously cached SGDB covers
-        await RestoreCachedCoversAsync(matches);
+        try
+        {
+            // First, restore any previously cached SGDB covers
+            await RestoreCachedCoversAsync(matches);
 
-        if (forceRefresh)
-            InvalidateCacheForMatches(matches);
+            if (forceRefresh)
+                InvalidateCacheForMatches(matches);
 
-        await EnrichMatchesInternalAsync(matches, setUrl, ct, forceRefresh);
+            await EnrichMatchesInternalAsync(matches, setUrl, ct, forceRefresh);
+        }
+        catch (Exception ex)
+        {
+            // Never let SGDB enrichment crash the caller — it's purely cosmetic.
+            System.Diagnostics.Debug.WriteLine($"[SteamGridDb] Enrichment failed: {ex.Message}");
+        }
     }
 
     private async Task EnrichMatchesInternalAsync(
@@ -310,6 +320,8 @@ public class SteamGridDbService
 
         var platform = ToPlatform(store);
 
+        if (_rateLimitedUntil > DateTime.UtcNow) return null;
+
         if (platform != null)
         {
             // Platform/ID lookup (Steam, GOG, Epic) — cached under sgdb_{store}_{gameId}
@@ -323,6 +335,10 @@ public class SteamGridDbService
                     $"https://www.steamgriddb.com/api/v2/grids/{platform}/{gameId}?dimensions=600x900");
                 req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
                 using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+                if (resp.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                {
+                    BackOff(); return null;
+                }
                 if (!resp.IsSuccessStatusCode) { await _cache.SaveJsonAsync(cacheKey, ""); return null; }
                 var json = await resp.Content.ReadFromJsonAsync<SgdbResponse>(cancellationToken: ct);
                 var url = json?.Data?.FirstOrDefault()?.Url;
@@ -347,14 +363,22 @@ public class SteamGridDbService
         return null;
     }
 
+    private void BackOff()
+    {
+        _rateLimitedUntil = DateTime.UtcNow.AddHours(1);
+        System.Diagnostics.Debug.WriteLine($"[SteamGridDb] Rate-limited, backing off until {_rateLimitedUntil:HH:mm} UTC");
+    }
+
     private async Task<string?> SearchByTitleAsync(string title, CancellationToken ct)
     {
+        if (_rateLimitedUntil > DateTime.UtcNow) return null;
         try
         {
             using var searchReq = new HttpRequestMessage(HttpMethod.Get,
                 $"https://www.steamgriddb.com/api/v2/search/autocomplete/{Uri.EscapeDataString(title)}");
             searchReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
             using var searchResp = await Http.SendAsync(searchReq, HttpCompletionOption.ResponseHeadersRead, ct);
+            if (searchResp.StatusCode == System.Net.HttpStatusCode.TooManyRequests) { BackOff(); return null; }
             if (!searchResp.IsSuccessStatusCode) return null;
 
             var searchJson = await searchResp.Content.ReadFromJsonAsync<SgdbSearchResponse>(cancellationToken: ct);
@@ -365,6 +389,7 @@ public class SteamGridDbService
                 $"https://www.steamgriddb.com/api/v2/grids/game/{sgdbId}?dimensions=600x900");
             gridReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
             using var gridResp = await Http.SendAsync(gridReq, HttpCompletionOption.ResponseHeadersRead, ct);
+            if (gridResp.StatusCode == System.Net.HttpStatusCode.TooManyRequests) { BackOff(); return null; }
             if (!gridResp.IsSuccessStatusCode) return null;
 
             var gridJson = await gridResp.Content.ReadFromJsonAsync<SgdbResponse>(cancellationToken: ct);

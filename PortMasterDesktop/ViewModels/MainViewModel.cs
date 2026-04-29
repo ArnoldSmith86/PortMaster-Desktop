@@ -29,7 +29,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private LibraryFilter _activeFilter = LibraryFilter.PortMasterAvailable;
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private string _statusMessage = "Loading…";
-    [ObservableProperty] private bool _isLoading;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowBackgroundTask))]
+    private bool _isLoading;
     [ObservableProperty] private double _installProgress;
     [ObservableProperty] private string _installMessage = "";
     [ObservableProperty] private bool _isInstalling;
@@ -44,8 +46,17 @@ public partial class MainViewModel : ObservableObject
     public string? LastInstallLogPath { get; private set; }
     [ObservableProperty] private string _partitionStatus = "No SD card detected";
     [ObservableProperty] private string _dbStats = "";
-    [ObservableProperty] private bool _isBackgroundTaskActive;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowBackgroundTask))]
+    private bool _isBackgroundTaskActive;
     [ObservableProperty] private string _backgroundTaskMessage = "";
+    [ObservableProperty] private double _backgroundTaskProgress;
+    [ObservableProperty] private bool _backgroundTaskIndeterminate;
+
+    /// <summary>True when the background-task progress band should be visible.
+    /// Suppressed while the main loading overlay is up so the two indicators don't double-up.</summary>
+    public bool ShowBackgroundTask => IsBackgroundTaskActive && !IsLoading;
 
     private Task? _portMasterImagesTask;
 
@@ -120,11 +131,26 @@ public partial class MainViewModel : ObservableObject
                 Dispatcher.UIThread.Post(() =>
                 {
                     BackgroundTaskMessage = "Fetching PortMaster screenshots…";
+                    BackgroundTaskProgress = 0;
+                    BackgroundTaskIndeterminate = true;
                     IsBackgroundTaskActive = true;
                 });
 
-                var path = await _portMasterImages.EnsureImagesAsync(msg =>
-                    Dispatcher.UIThread.Post(() => BackgroundTaskMessage = msg));
+                var progress = new Progress<(string message, double? fraction)>(p =>
+                {
+                    BackgroundTaskMessage = p.message;
+                    if (p.fraction is { } frac)
+                    {
+                        BackgroundTaskIndeterminate = false;
+                        BackgroundTaskProgress = frac;
+                    }
+                    else
+                    {
+                        BackgroundTaskIndeterminate = true;
+                    }
+                });
+
+                var path = await _portMasterImages.EnsureImagesAsync(progress);
 
                 Dispatcher.UIThread.Post(() =>
                 {
@@ -136,6 +162,8 @@ public partial class MainViewModel : ObservableObject
                     }
                     IsBackgroundTaskActive = false;
                     BackgroundTaskMessage = "";
+                    BackgroundTaskProgress = 0;
+                    BackgroundTaskIndeterminate = false;
                 });
             }
             catch
@@ -144,6 +172,8 @@ public partial class MainViewModel : ObservableObject
                 {
                     IsBackgroundTaskActive = false;
                     BackgroundTaskMessage = "";
+                    BackgroundTaskProgress = 0;
+                    BackgroundTaskIndeterminate = false;
                 });
             }
         });

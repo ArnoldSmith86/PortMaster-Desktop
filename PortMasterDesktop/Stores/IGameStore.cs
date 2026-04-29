@@ -32,4 +32,16 @@ public interface IGameStore
     /// Returns null if not owned.
     /// </summary>
     Task<StoreGame?> FindOwnedGameAsync(string storeUrl, CancellationToken ct = default);
+
+    /// <summary>Most recent error message from this store (HTTP failure, rate limit, etc.). Null when clean.</summary>
+    string? LastError { get; }
+
+    /// <summary>True while this store is being skipped after a recent error.</summary>
+    bool IsInCooldown { get; }
+
+    /// <summary>Stamp the store with an error message and put it in cooldown for the given duration.</summary>
+    void RecordError(string message, TimeSpan? cooldown = null);
+
+    /// <summary>Clear LastError and any active cooldown — call after a successful operation.</summary>
+    void ClearError();
 }

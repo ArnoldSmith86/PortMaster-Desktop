@@ -199,16 +199,20 @@
                 Background="#12122a" Padding="14,9">
             <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="2" VerticalAlignment="Center">
-                    <!-- Background-task progress (e.g. PortMaster screenshot download) -->
+                    <!-- Background-task progress (e.g. PortMaster screenshot download).
+                         Hidden while the main loading overlay is showing to avoid two
+                         progress bars on the screen at once. -->
                     <StackPanel Orientation="Vertical" Spacing="2"
-                                IsVisible="{Binding IsBackgroundTaskActive}">
+                                IsVisible="{Binding ShowBackgroundTask}">
                         <TextBlock Text="{Binding BackgroundTaskMessage}" FontSize="12"
                                    Foreground="#b0b0cc" VerticalAlignment="Center"/>
-                        <ProgressBar IsIndeterminate="True" Height="3" Width="220"
-                                     HorizontalAlignment="Left"/>
+                        <ProgressBar Height="3" Width="220" HorizontalAlignment="Left"
+                                     Minimum="0" Maximum="1"
+                                     Value="{Binding BackgroundTaskProgress}"
+                                     IsIndeterminate="{Binding BackgroundTaskIndeterminate}"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="6"
-                                IsVisible="{Binding !IsBackgroundTaskActive}">
+                                IsVisible="{Binding !ShowBackgroundTask}">
                         <TextBlock Text="{Binding PartitionStatus}" FontSize="12"
                                    VerticalAlignment="Center"
                                    Foreground="{Binding PartitionStatus,
@@ -286,6 +290,12 @@
                                                 <TextBlock Text="Not logged in"
                                                            FontSize="12" Foreground="#6a6a8a"
                                                            IsVisible="{Binding !IsAuthenticated}"/>
+                                                <TextBlock FontSize="11" Foreground="#ff6060"
+                                                           TextWrapping="Wrap"
+                                                           Text="{Binding LastError,
+                                                               StringFormat='Last error: {0}'}"
+                                                           IsVisible="{Binding LastError,
+                                                               Converter={x:Static conv:NotEmptyConverter.Instance}}"/>
                                             </StackPanel>
 
                                             <!-- Buttons -->

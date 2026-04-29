@@ -816,7 +816,8 @@ class Program
 
             // Step 1: Download images.zip
             var pmImages = new PortMasterImagesService(cache);
-            Action<string> imgProgress = msg => Console.Write($"\r  {msg,-60}");
+            var imgProgress = new Progress<(string message, double? fraction)>(p =>
+                Console.Write($"\r  {p.message,-60}"));
             var imagesPath = await pmImages.EnsureImagesAsync(imgProgress);
             Console.WriteLine();
 

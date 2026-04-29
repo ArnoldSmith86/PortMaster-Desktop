@@ -24,7 +24,7 @@ public class PortMasterImagesService
     /// <summary>
     /// Ensures PortMaster images are downloaded and extracted. Returns the directory path.
     /// </summary>
-    public async Task<string?> EnsureImagesAsync(Action<string>? progress = null)
+    public async Task<string?> EnsureImagesAsync(IProgress<(string message, double? fraction)>? progress = null)
     {
         if (HasCachedImages()) return _imagesDir;
 
@@ -36,7 +36,7 @@ public class PortMasterImagesService
             // This points to the latest release of PortMaster-New
             const string ImagesZipUrl = "https://github.com/PortsMaster/PortMaster-New/releases/download/2026-04-28_1830/images.zip";
 
-            progress?.Invoke("Downloading PortMaster screenshots…");
+            progress?.Report(("Downloading PortMaster screenshots…", null));
             var zipPath = Path.Combine(_imagesDir, "images.zip");
 
             using (var resp = await Http.GetAsync(ImagesZipUrl, HttpCompletionOption.ResponseHeadersRead))
@@ -58,14 +58,16 @@ public class PortMasterImagesService
                     if (mb != lastReportedMb)
                     {
                         lastReportedMb = mb;
-                        progress?.Invoke(total > 0
+                        var msg = total > 0
                             ? $"Downloading screenshots… {mb} / {total / 1048576} MB"
-                            : $"Downloading screenshots… {mb} MB");
+                            : $"Downloading screenshots… {mb} MB";
+                        double? frac = total > 0 ? (double)downloaded / total : null;
+                        progress?.Report((msg, frac));
                     }
                 }
             }
 
-            progress?.Invoke("Extracting screenshots…");
+            progress?.Report(("Extracting screenshots…", null));
             using (var zip = ZipFile.OpenRead(zipPath))
             {
                 foreach (var entry in zip.Entries)

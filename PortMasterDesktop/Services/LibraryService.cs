@@ -1,3 +1,4 @@
+using System.Net.Http;
 using PortMasterDesktop.Models;
 using PortMasterDesktop.PortMaster;
 using PortMasterDesktop.Stores;
@@ -41,13 +42,31 @@ public class LibraryService
         var authStores = new List<IGameStore>();
         foreach (var store in _stores)
         {
-            if (forceRefresh) await store.InvalidateLibraryCacheAsync();
-            if (await store.IsAuthenticatedAsync())
-                authStores.Add(store);
+            try
+            {
+                if (forceRefresh) await store.InvalidateLibraryCacheAsync();
+                if (await store.IsAuthenticatedAsync())
+                    authStores.Add(store);
+            }
+            catch (Exception ex) { store.RecordError(FormatError(ex)); }
         }
 
-        var libraryTasks = authStores.Select(s => s.GetLibraryAsync(ct)).ToList();
-        var libraries = await Task.WhenAll(libraryTasks);
+        var libraries = await Task.WhenAll(authStores.Select(async s =>
+        {
+            if (s.IsInCooldown)
+                return (IReadOnlyList<StoreGame>)Array.Empty<StoreGame>();
+            try
+            {
+                var lib = await s.GetLibraryAsync(ct);
+                s.ClearError();
+                return lib;
+            }
+            catch (Exception ex)
+            {
+                s.RecordError(FormatError(ex));
+                return (IReadOnlyList<StoreGame>)Array.Empty<StoreGame>();
+            }
+        }));
 
         // Per-store counts
         var storeCounts = authStores
@@ -105,7 +124,10 @@ public class LibraryService
 
                 foreach (var authStore in authStores.Where(s => s.StoreId == storeId))
                 {
-                    var game = await authStore.FindOwnedGameAsync(portStore.GameUrl, ct);
+                    if (authStore.IsInCooldown) continue;
+                    StoreGame? game;
+                    try { game = await authStore.FindOwnedGameAsync(portStore.GameUrl, ct); }
+                    catch (Exception ex) { authStore.RecordError(FormatError(ex)); continue; }
                     if (game != null && owned.All(g => g.Id != game.Id))
                     {
                         owned.Add(game);
@@ -142,7 +164,10 @@ public class LibraryService
 
                     foreach (var authStore in authStores.Where(s => s.StoreId == storeId))
                     {
-                        var game = await authStore.FindOwnedGameAsync(url, ct);
+                        if (authStore.IsInCooldown) continue;
+                        StoreGame? game;
+                        try { game = await authStore.FindOwnedGameAsync(url, ct); }
+                        catch (Exception ex) { authStore.RecordError(FormatError(ex)); continue; }
                         if (game != null && owned.All(g => g.Id != game.Id))
                         {
                             owned.Add(game);
@@ -240,6 +265,14 @@ public class LibraryService
             _                                    => 0,
         };
         return Score(add) > Score(current.Value) ? add : current.Value;
+    }
+
+    private static string FormatError(Exception ex)
+    {
+        // Surface HTTP status codes (e.g. 429 Too Many Requests) when present.
+        if (ex is HttpRequestException http && http.StatusCode is { } status)
+            return $"HTTP {(int)status} {status}: {ex.Message}";
+        return ex.Message;
     }
 
     private static StoreId? ParseStoreId(string name) => name.ToLowerInvariant() switch

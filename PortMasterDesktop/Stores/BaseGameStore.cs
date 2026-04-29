@@ -55,6 +55,28 @@ public abstract class BaseGameStore : IGameStore
                           StringComparison.OrdinalIgnoreCase));
     }
 
+    // ── Error / circuit-breaker tracking ─────────────────────────────────────
+
+    private string? _lastError;
+    private DateTime? _cooldownUntil;
+
+    public string? LastError => _lastError;
+    public bool IsInCooldown => _cooldownUntil > DateTime.UtcNow;
+
+    public void RecordError(string message, TimeSpan? cooldown = null)
+    {
+        _lastError = message;
+        _cooldownUntil = DateTime.UtcNow + (cooldown ?? TimeSpan.FromHours(1));
+        System.Diagnostics.Debug.WriteLine(
+            $"[{StoreId}] Error: {message} (cooldown until {_cooldownUntil:HH:mm} UTC)");
+    }
+
+    public void ClearError()
+    {
+        _lastError = null;
+        _cooldownUntil = null;
+    }
+
     // ── Credential storage (plain files, permissions-protected) ──────────────
     // Stored in ~/.local/share/portmaster-desktop/creds/{StoreId}_{key}
     // On a future iteration these could be delegated to libsecret/Keychain.
