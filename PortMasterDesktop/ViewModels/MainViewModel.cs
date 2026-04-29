@@ -315,9 +315,21 @@ public partial class MainViewModel : ObservableObject
     public async Task RefreshGameCover()
     {
         if (SelectedGame == null) return;
+
+        string? foundCoverUrl = null;
         await _steamGridDb.EnrichMatchesAsync(new[] { SelectedGame },
-            setUrl: (m, u) => Dispatcher.UIThread.Post(() => m.SgdbCoverUrl = u),
+            setUrl: (m, u) =>
+            {
+                foundCoverUrl = u;
+                Dispatcher.UIThread.Post(() => m.SgdbCoverUrl = u);
+            },
             forceRefresh: true);
+
+        // Persist the selected cover to survive app restart
+        if (!string.IsNullOrEmpty(foundCoverUrl))
+        {
+            await _steamGridDb.SaveSelectedCoverAsync(SelectedGame, foundCoverUrl);
+        }
     }
 
     public void UpdateTileWidth(double availableWidth)

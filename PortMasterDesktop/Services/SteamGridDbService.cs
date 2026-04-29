@@ -36,6 +36,9 @@ public class SteamGridDbService
         CancellationToken ct = default,
         bool forceRefresh = false)
     {
+        // First, restore any previously cached SGDB covers
+        await RestoreCachedCoversAsync(matches);
+
         if (forceRefresh)
             InvalidateCacheForMatches(matches);
 
@@ -106,6 +109,37 @@ public class SteamGridDbService
             }
             finally { sem.Release(); }
         }));
+    }
+
+    // Restore previously cached SGDB covers for matches
+    private async Task RestoreCachedCoversAsync(IEnumerable<GameMatch> matches)
+    {
+        foreach (var match in matches)
+        {
+            foreach (var game in match.OwnedGames)
+            {
+                var cacheKey = $"sgdb_selected_{game.Store}_{game.Id}";
+                var cached = await _cache.LoadJsonAsync<string>(cacheKey);
+                if (!string.IsNullOrEmpty(cached))
+                {
+                    match.SgdbCoverUrl = cached;
+                    System.Diagnostics.Debug.WriteLine($"[SteamGridDb] Restored cached cover for {game.Store} {game.Id}");
+                    break; // Only one SGDB cover per match
+                }
+            }
+        }
+    }
+
+    // Save a selected SGDB cover to persistent cache
+    public async Task SaveSelectedCoverAsync(GameMatch match, string coverUrl)
+    {
+        if (string.IsNullOrEmpty(coverUrl) || match.OwnedGames.Count == 0) return;
+
+        // Save under the first owned game's identity
+        var game = match.OwnedGames.First();
+        var cacheKey = $"sgdb_selected_{game.Store}_{game.Id}";
+        await _cache.SaveJsonAsync(cacheKey, coverUrl);
+        System.Diagnostics.Debug.WriteLine($"[SteamGridDb] Saved cover for {game.Store} {game.Id}");
     }
 
     // Invalidate cached SGDB covers and dimensions for the given matches
