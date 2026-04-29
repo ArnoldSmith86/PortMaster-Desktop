@@ -33,6 +33,18 @@ public class SteamGridDbService
     public async Task EnrichMatchesAsync(
         IEnumerable<GameMatch> matches,
         Action<GameMatch, string>? setUrl = null,
+        CancellationToken ct = default,
+        bool forceRefresh = false)
+    {
+        if (forceRefresh)
+            InvalidateCacheForMatches(matches);
+
+        await EnrichMatchesInternalAsync(matches, setUrl, ct);
+    }
+
+    private async Task EnrichMatchesInternalAsync(
+        IEnumerable<GameMatch> matches,
+        Action<GameMatch, string>? setUrl = null,
         CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(_apiKey)) return;
@@ -66,6 +78,22 @@ public class SteamGridDbService
             }
             finally { sem.Release(); }
         }));
+    }
+
+    // Invalidate cached SGDB covers and dimensions for the given matches
+    private void InvalidateCacheForMatches(IEnumerable<GameMatch> matches)
+    {
+        foreach (var match in matches)
+        {
+            foreach (var game in match.OwnedGames)
+            {
+                // Invalidate dimension cache by URL
+                _cache.Invalidate($"coverdim_{HashUrl(game.CoverUrl)}");
+                // Invalidate SGDB lookups
+                _cache.Invalidate($"sgdb_{game.Store}_{game.Id}");
+                _cache.Invalidate($"sgdb_ns_{game.Store}_{game.Id}");
+            }
+        }
     }
 
     // Sync: does this game have a cover we can confirm is portrait without a network round-trip?

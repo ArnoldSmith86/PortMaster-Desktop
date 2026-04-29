@@ -291,6 +291,15 @@ public partial class MainViewModel : ObservableObject
         catch { /* ignore */ }
     }
 
+    [RelayCommand]
+    public async Task RefreshGameCover()
+    {
+        if (SelectedGame == null) return;
+        await _steamGridDb.EnrichMatchesAsync(new[] { SelectedGame },
+            setUrl: (m, u) => Dispatcher.UIThread.Post(() => m.SgdbCoverUrl = u),
+            forceRefresh: true);
+    }
+
     // ── Internal ──────────────────────────────────────────────────────────────
 
     private void ApplyFilter()

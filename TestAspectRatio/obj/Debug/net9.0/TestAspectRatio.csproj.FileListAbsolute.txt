@@ -1,0 +1,15 @@
+/home/mint/Projects/Gaming/PortMaster-Desktop/TestAspectRatio/bin/Debug/net9.0/TestAspectRatio
+/home/mint/Projects/Gaming/PortMaster-Desktop/TestAspectRatio/bin/Debug/net9.0/TestAspectRatio.deps.json
+/home/mint/Projects/Gaming/PortMaster-Desktop/TestAspectRatio/bin/Debug/net9.0/TestAspectRatio.runtimeconfig.json
+/home/mint/Projects/Gaming/PortMaster-Desktop/TestAspectRatio/bin/Debug/net9.0/TestAspectRatio.dll
+/home/mint/Projects/Gaming/PortMaster-Desktop/TestAspectRatio/bin/Debug/net9.0/TestAspectRatio.pdb
+/home/mint/Projects/Gaming/PortMaster-Desktop/TestAspectRatio/obj/Debug/net9.0/TestAspectRatio.GeneratedMSBuildEditorConfig.editorconfig
+/home/mint/Projects/Gaming/PortMaster-Desktop/TestAspectRatio/obj/Debug/net9.0/TestAspectRatio.AssemblyInfoInputs.cache
+/home/mint/Projects/Gaming/PortMaster-Desktop/TestAspectRatio/obj/Debug/net9.0/TestAspectRatio.AssemblyInfo.cs
+/home/mint/Projects/Gaming/PortMaster-Desktop/TestAspectRatio/obj/Debug/net9.0/TestAspectRatio.csproj.CoreCompileInputs.cache
+/home/mint/Projects/Gaming/PortMaster-Desktop/TestAspectRatio/obj/Debug/net9.0/TestAspectRatio.sourcelink.json
+/home/mint/Projects/Gaming/PortMaster-Desktop/TestAspectRatio/obj/Debug/net9.0/TestAspectRatio.dll
+/home/mint/Projects/Gaming/PortMaster-Desktop/TestAspectRatio/obj/Debug/net9.0/refint/TestAspectRatio.dll
+/home/mint/Projects/Gaming/PortMaster-Desktop/TestAspectRatio/obj/Debug/net9.0/TestAspectRatio.pdb
+/home/mint/Projects/Gaming/PortMaster-Desktop/TestAspectRatio/obj/Debug/net9.0/TestAspectRatio.genruntimeconfig.cache
+/home/mint/Projects/Gaming/PortMaster-Desktop/TestAspectRatio/obj/Debug/net9.0/ref/TestAspectRatio.dll

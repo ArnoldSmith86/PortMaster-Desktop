@@ -167,6 +167,9 @@
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
                             VerticalAlignment="Center">
+                    <Button Content="🖼 Get Cover" Classes="secondary" ToolTip.Tip="Download cover from SteamGridDB"
+                            Command="{Binding RefreshGameCoverCommand}"
+                            IsVisible="{Binding HasSelectedGame}"/>
                     <Button Content="🔗 Details" Classes="secondary"
                             Command="{Binding OpenDetailPageCommand}"
                             IsVisible="{Binding SelectedGame.HasPort}"/>
