@@ -14,8 +14,8 @@
         <Border CornerRadius="10" ClipToBounds="True" Background="#1e1e38">
             <Grid RowDefinitions="*,Auto">
 
-                <!-- Cover image (portrait 2:3, height = width * 1.5) -->
-                <Panel Grid.Row="0" Height="{Binding $parent[UserControl].Bounds.Width, Converter={x:Static conv:WidthToHeightConverter.Instance}}">
+                <!-- Cover image (aspect ratio depends on DisplayImageAspectRatio) -->
+                <Panel Grid.Row="0" x:Name="ImagePanel" Height="240">
                     <Image asyncImageLoader:ImageLoader.Source="{Binding DisplayCoverUrl}"
                            Stretch="Uniform"
                            VerticalAlignment="Center"

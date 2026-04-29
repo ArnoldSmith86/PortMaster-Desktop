@@ -20,6 +20,7 @@ public partial class MainWindow : Window
             if (DataContext is MainViewModel vm)
             {
                 vm.ShowAlertAsync = ShowAlertAsync;
+                vm.OnSettingsClosed += UpdateTileWidth;
                 await vm.LoadCommand.ExecuteAsync(null);
                 UpdateTileWidth();
             }
@@ -59,6 +60,17 @@ public partial class MainWindow : Window
     {
         if (DataContext is MainViewModel vm)
             vm.OpenSettingsCommand.Execute(null);
+    }
+
+    private void OnPortMasterImagesToggle(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm && vm.SettingsVm != null)
+        {
+            vm.SettingsVm.UsePortMasterImages = !vm.SettingsVm.UsePortMasterImages;
+            vm.ApplyImageModeSetting();
+            UpdateTileWidth();  // Recalculate tile width with new setting
+            e.Handled = true;
+        }
     }
 
     private void OnGameCardPressed(object? sender, PointerPressedEventArgs e)

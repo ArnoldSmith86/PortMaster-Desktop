@@ -18,8 +18,11 @@ public partial class MainViewModel : ObservableObject
     private readonly LibraryService _library;
     private readonly InstallService _installer;
     private readonly SteamGridDbService _steamGridDb;
+    private readonly PortMasterImagesService _portMasterImages;
 
     private IReadOnlyList<GameMatch> _allMatches = [];
+    private string _portMasterImagesPath = "";
+    private bool _usePortMasterImages = false;
 
     [ObservableProperty] private ObservableCollection<GameMatch> _displayedGames = [];
     [ObservableProperty] private GameMatch? _selectedGame;
@@ -44,11 +47,12 @@ public partial class MainViewModel : ObservableObject
 
     public Func<string, string, string?, Task>? ShowAlertAsync { get; set; }
 
-    public MainViewModel(LibraryService library, InstallService installer, SteamGridDbService steamGridDb)
+    public MainViewModel(LibraryService library, InstallService installer, SteamGridDbService steamGridDb, PortMasterImagesService portMasterImages)
     {
         _library = library;
         _installer = installer;
         _steamGridDb = steamGridDb;
+        _portMasterImages = portMasterImages;
     }
 
     [RelayCommand]
@@ -61,10 +65,36 @@ public partial class MainViewModel : ObservableObject
         await SettingsVm.LoadCommand.ExecuteAsync(null);
     }
 
+    public event Action? OnSettingsClosed;
+
     [RelayCommand]
     public void CloseSettings()
     {
         IsSettingsOpen = false;
+        ApplyImageModeSetting();
+        OnSettingsClosed?.Invoke();
+    }
+
+    public void ApplyImageModeSetting()
+    {
+        if (SettingsVm != null)
+        {
+            _usePortMasterImages = SettingsVm.UsePortMasterImages;
+
+            // Prefer downloaded images, fallback to SD card if available
+            var imagesPath = _portMasterImagesPath;
+            if (string.IsNullOrEmpty(imagesPath) && ActivePartition != null)
+            {
+                var portMasterDir = Path.Combine(ActivePartition.MountPoint, "roms", "ports", "PortMaster");
+                imagesPath = Path.Combine(portMasterDir, "screenshots");
+            }
+
+            foreach (var game in _allMatches)
+            {
+                game.UsePortMasterImages = SettingsVm.UsePortMasterImages;
+                game.PortMasterImagesPath = imagesPath;
+            }
+        }
     }
 
     // ── Computed properties ───────────────────────────────────────────────────
@@ -143,7 +173,15 @@ public partial class MainViewModel : ObservableObject
     // ── Commands ──────────────────────────────────────────────────────────────
 
     [RelayCommand]
-    public Task LoadAsync() => LoadInternalAsync(false);
+    public async Task LoadAsync()
+    {
+        // Load persisted setting first
+        if (SettingsVm == null)
+            SettingsVm = App.Services.GetRequiredService<SettingsViewModel>();
+        await SettingsVm.LoadCommand.ExecuteAsync(null);
+
+        await LoadInternalAsync(false);
+    }
 
     [RelayCommand]
     public Task RefreshAsync() => LoadInternalAsync(true);
@@ -157,9 +195,17 @@ public partial class MainViewModel : ObservableObject
         StatusMessage = "Loading…";
         try
         {
+            // Download PortMaster images in background
+            _ = Task.Run(async () =>
+            {
+                _portMasterImagesPath = await _portMasterImages.EnsureImagesAsync(
+                    msg => StatusMessage = msg) ?? "";
+            });
+
             var (matches, partitions, storeCounts) = await _library.LoadAsync(forceRefresh,
                 msg => StatusMessage = msg);
             _allMatches = matches;
+            ApplyImageModeSetting();
             ActivePartition = partitions.FirstOrDefault();
             if (ActivePartition != null)
             {
@@ -334,8 +380,16 @@ public partial class MainViewModel : ObservableObject
 
     public void UpdateTileWidth(double availableWidth)
     {
-        const double minTileWidth = 140;
-        const double maxTileWidth = 200;
+        double minTileWidth = 140;
+        double maxTileWidth = 200;
+
+        // Make tiles 1.5x bigger when showing PortMaster images
+        if (_usePortMasterImages)
+        {
+            minTileWidth *= 1.5;
+            maxTileWidth *= 1.5;
+        }
+
         const double itemMargin = 4;  // Margin around each card
         const double containerMargin = 8;  // Container outer margin
 

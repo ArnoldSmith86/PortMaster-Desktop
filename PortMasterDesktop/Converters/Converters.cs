@@ -108,3 +108,25 @@ public class WidthToHeightConverter : IValueConverter
     public object ConvertBack(object? v, Type t, object? p, CultureInfo c)
         => throw new NotSupportedException();
 }
+
+public class AspectRatioToHeightConverter : IValueConverter
+{
+    public static readonly AspectRatioToHeightConverter Instance = new();
+    // Convert width and aspect ratio to height. Parameters: width|aspectRatio (e.g., "160|1.333")
+    public object Convert(object? v, Type t, object? p, CultureInfo c)
+    {
+        if (v is not double w || w <= 0) return 240.0;
+
+        var param = p as string ?? "2|3";
+        var parts = param.Split('|');
+        if (parts.Length != 2) return w * 1.5;
+
+        if (!double.TryParse(parts[0], out var aspectNum) || !double.TryParse(parts[1], out var aspectDen))
+            return w * 1.5;
+
+        var ratio = aspectNum / aspectDen;
+        return w / ratio;
+    }
+    public object ConvertBack(object? v, Type t, object? p, CultureInfo c)
+        => throw new NotSupportedException();
+}

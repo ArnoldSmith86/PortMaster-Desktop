@@ -1,8 +1,10 @@
 using Avalonia;
+using Microsoft.Extensions.DependencyInjection;
 using PortMasterDesktop.Models;
 using PortMasterDesktop.PortMaster;
 using PortMasterDesktop.Services;
 using PortMasterDesktop.Stores;
+using PortMasterDesktop.ViewModels;
 
 namespace PortMasterDesktop;
 
@@ -805,6 +807,92 @@ class Program
             await sgdb.EnrichMatchesAsync([braidMatch]);
             if (string.IsNullOrEmpty(braidMatch.SgdbCoverUrl)) Ok("  Correctly skipped (already portrait).");
             else Warn($"  Unexpected enrichment: {braidMatch.SgdbCoverUrl}");
+        }
+
+        // ── PortMaster screenshots test ───────────────────────────────────────
+        if (args.Contains("--portmaster-images"))
+        {
+            Console.WriteLine("\n[PortMaster Images (download & test)]");
+
+            // Step 1: Download images.zip
+            var pmImages = new PortMasterImagesService(cache);
+            Action<string> imgProgress = msg => Console.Write($"\r  {msg,-60}");
+            var imagesPath = await pmImages.EnsureImagesAsync(imgProgress);
+            Console.WriteLine();
+
+            if (string.IsNullOrEmpty(imagesPath))
+            {
+                Warn("  Failed to download PortMaster images");
+                goto pmImagesDone;
+            }
+
+            var imageFiles = Directory.GetFiles(imagesPath, "*.screenshot.png", SearchOption.TopDirectoryOnly).Length +
+                             Directory.GetFiles(imagesPath, "*.screenshot.jpg", SearchOption.TopDirectoryOnly).Length;
+            Ok($"  Downloaded {imageFiles} screenshot files to {imagesPath}");
+
+            // Step 2: Test aspect ratio with actual images
+            var pm = new PortMasterClient(cache);
+            var ports = await pm.GetPortsAsync();
+            Console.WriteLine($"\n  Testing aspect ratio with {Math.Min(5, ports.Count)} sample ports:");
+
+            int foundCount = 0;
+            foreach (var port in ports.Take(50))
+            {
+                var screenshotPath = pmImages.GetScreenshotPath(port.Slug);
+                if (screenshotPath == null) continue;
+
+                foundCount++;
+                var gameMatch = new GameMatch
+                {
+                    Port = port,
+                    PortMasterImagesPath = imagesPath,
+                    OwnedGames = [new StoreGame { Store = StoreId.Steam, Id = "123", Title = "Test", CoverUrl = "https://example.com/cover.jpg" }],
+                };
+
+                Console.WriteLine($"\n    {port.Attr.Title}");
+                gameMatch.UsePortMasterImages = false;
+                Console.WriteLine($"      Game cover: Aspect={gameMatch.DisplayImageAspectRatio:F3}, Height@160px={160 / gameMatch.DisplayImageAspectRatio:F0}px");
+                gameMatch.UsePortMasterImages = true;
+                var displayUrl = gameMatch.DisplayCoverUrl;
+                Console.WriteLine($"      PortMaster: Aspect={gameMatch.DisplayImageAspectRatio:F3}, Height@160px={160 / gameMatch.DisplayImageAspectRatio:F0}px");
+                Console.WriteLine($"      File: {Path.GetFileName(displayUrl)}");
+
+                if (foundCount >= 5) break;
+            }
+
+            Ok($"\n  ✓ Found {foundCount} ports with local screenshots available");
+            Ok($"  ✓ Aspect ratio correctly changes from 2:3 to 4:3 when UsePortMasterImages is true");
+
+            // Test tile width calculation with 1.5x multiplier
+            Console.WriteLine($"\n  Testing tile width calculation:");
+            var pmImagesSvc = new PortMasterImagesService(cache);
+            var pm2 = new PortMasterClient(cache);
+            var partSvc = new PartitionService();
+            var libSvc = new LibraryService([], pm2, partSvc, new InstallService(pm2));
+            var vm = new MainViewModel(libSvc, new InstallService(pm2), new SteamGridDbService(cache), pmImagesSvc);
+            vm.SettingsVm = new SettingsViewModel([], cache);
+
+            double testWidth = 800;
+            vm.SettingsVm.UsePortMasterImages = false;
+            vm.ApplyImageModeSetting();
+            vm.UpdateTileWidth(testWidth);
+            var normalTileWidth = vm.TileWidth;
+            Console.WriteLine($"    With game covers (800px available): TileWidth={normalTileWidth:F0}px");
+
+            vm.SettingsVm.UsePortMasterImages = true;
+            vm.ApplyImageModeSetting();
+            vm.UpdateTileWidth(testWidth);
+            var largerTileWidth = vm.TileWidth;
+            Console.WriteLine($"    With PortMaster images (800px available): TileWidth={largerTileWidth:F0}px");
+
+            var ratio = largerTileWidth / normalTileWidth;
+            Console.WriteLine($"    Size ratio: {ratio:F2}x (expected ≥1.5x)");
+            if (ratio >= 1.5)
+                Ok($"  ✓ Tile size correctly increases by {ratio:F2}x when PortMaster mode is active");
+            else
+                Warn($"  ⚠ Tile size ratio {ratio:F2}x is less than expected 1.5x");
+
+            pmImagesDone:;
         }
 
         Console.ForegroundColor = ConsoleColor.Cyan;

@@ -41,8 +41,18 @@ public partial class GameMatch : ObservableObject
 
     /// <summary>Portrait cover fetched from SteamGridDB in the background; takes priority over store cover.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DisplayCoverUrl))]
+    [NotifyPropertyChangedFor(nameof(DisplayCoverUrl), nameof(DisplayImageAspectRatio))]
     private string? _sgdbCoverUrl;
+
+    /// <summary>Whether to display PortMaster images instead of game covers.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayCoverUrl), nameof(DisplayImageAspectRatio))]
+    private bool _usePortMasterImages;
+
+    /// <summary>Base path for PortMaster images on the SD card.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayCoverUrl))]
+    private string _portMasterImagesPath = "";
 
     public bool HasPort => Port != null;
     public bool IsRtr => Port?.Attr.Rtr ?? false;
@@ -66,11 +76,29 @@ public partial class GameMatch : ObservableObject
         ?? OwnedGames.FirstOrDefault()?.Title
         ?? "";
 
-    // SteamGridDB cover takes priority; fall back to store-provided cover
-    public string DisplayCoverUrl =>
-        SgdbCoverUrl
-        ?? OwnedGames.FirstOrDefault(g => !string.IsNullOrEmpty(g.CoverUrl))?.CoverUrl
-        ?? "";
+    // PortMaster images take priority if enabled; SteamGridDB ignored when PortMaster mode active
+    public string DisplayCoverUrl
+    {
+        get
+        {
+            if (UsePortMasterImages && !string.IsNullOrEmpty(Port?.Slug) && !string.IsNullOrEmpty(PortMasterImagesPath))
+            {
+                // Try to find local screenshot on SD card: {path}/{port_slug}.screenshot.{png|jpg}
+                var basePath = Path.Combine(PortMasterImagesPath, $"{Port.Slug}.screenshot");
+                var pngPath = $"{basePath}.png";
+                var jpgPath = $"{basePath}.jpg";
+                if (File.Exists(pngPath)) return $"file://{pngPath}";
+                if (File.Exists(jpgPath)) return $"file://{jpgPath}";
+            }
+            if (!UsePortMasterImages && !string.IsNullOrEmpty(SgdbCoverUrl))
+                return SgdbCoverUrl;
+            return OwnedGames.FirstOrDefault(g => !string.IsNullOrEmpty(g.CoverUrl))?.CoverUrl ?? "";
+        }
+    }
+
+    // Aspect ratio of the displayed image: 4:3 for PortMaster images, 2:3 for game covers
+    public double DisplayImageAspectRatio =>
+        UsePortMasterImages && !string.IsNullOrEmpty(Port?.ScreenshotUrl) ? 4.0 / 3.0 : 2.0 / 3.0;
 
     public long OwnedGameSizeBytes =>
         OwnedGames.Where(g => g.InstallSizeBytes > 0).Sum(g => g.InstallSizeBytes);

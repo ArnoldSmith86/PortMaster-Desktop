@@ -48,6 +48,7 @@ public partial class App : Application
 
         services.AddSingleton<SteamDepotService>();
         services.AddSingleton<SteamGridDbService>();
+        services.AddSingleton<PortMasterImagesService>();
         services.AddSingleton<LibraryService>();
 
         services.AddTransient<MainViewModel>();
