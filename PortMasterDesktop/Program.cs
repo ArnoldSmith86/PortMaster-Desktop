@@ -766,26 +766,45 @@ class Program
         // ── SteamGridDB cover test ────────────────────────────────────────────
         if (args.Contains("--sgdb"))
         {
-            // Test two games: Hammerwatch (no CDN portrait, SteamGridDB should fill in) and Braid
             var sgdb = new SteamGridDbService(cache);
-            foreach (var (title, appId, storeId) in new (string, string, StoreId)[]
+
+            // Test 1: no existing cover → must enrich
+            Console.WriteLine("\n[SteamGridDB — Hammerwatch (Steam 239070, no cover)]");
+            cache.Invalidate("sgdb_Steam_239070");
+            cache.Invalidate("coverdim_Steam_239070");
+            var hwMatch = new GameMatch
             {
-                ("Hammerwatch", "239070", StoreId.Steam),
-                ("Braid",       "26800",  StoreId.Steam),
-            })
+                OwnedGames = [new StoreGame { Store = StoreId.Steam, Id = "239070", Title = "Hammerwatch", CoverUrl = "" }],
+            };
+            await sgdb.EnrichMatchesAsync([hwMatch]);
+            if (!string.IsNullOrEmpty(hwMatch.SgdbCoverUrl)) Ok($"  Cover: {hwMatch.SgdbCoverUrl}");
+            else Warn("  No cover.");
+
+            // Test 2: GOG landscape cover (392×220) → must enrich
+            Console.WriteLine("\n[SteamGridDB — Don't Starve (GOG 1207659210, landscape cover)]");
+            cache.Invalidate("sgdb_Gog_1207659210");
+            cache.Invalidate("coverdim_Gog_1207659210");
+            var dsUrl = "https://images-3.gog-statics.com/bd97997c37d8a4ae87f6b3db62b5cbb11e41330726ee30a1b4bc0e94fa0f0b81_392.jpg";
+            var dsMatch = new GameMatch
             {
-                Console.WriteLine($"\n[SteamGridDB Cover Test — {title} ({storeId} {appId})]");
-                cache.Invalidate($"sgdb_{storeId}_{appId}");
-                var fakeMatch = new GameMatch
-                {
-                    OwnedGames = [new StoreGame { Store = storeId, Id = appId, Title = title, CoverUrl = "" }],
-                };
-                await sgdb.EnrichMatchesAsync([fakeMatch]);
-                if (!string.IsNullOrEmpty(fakeMatch.SgdbCoverUrl))
-                    Ok($"  Cover URL: {fakeMatch.SgdbCoverUrl}");
-                else
-                    Warn("  No cover returned.");
-            }
+                OwnedGames = [new StoreGame { Store = StoreId.Gog, Id = "1207659210", Title = "Don't Starve", CoverUrl = dsUrl }],
+            };
+            await sgdb.EnrichMatchesAsync([dsMatch]);
+            if (!string.IsNullOrEmpty(dsMatch.SgdbCoverUrl)) Ok($"  Cover: {dsMatch.SgdbCoverUrl}");
+            else Warn("  No cover.");
+
+            // Test 3: Steam CDN portrait URL (600×900) → should NOT enrich
+            Console.WriteLine("\n[SteamGridDB — Braid (Steam 26800, portrait CDN cover — should skip)]");
+            cache.Invalidate("sgdb_Steam_26800");
+            cache.Invalidate("coverdim_Steam_26800");
+            var portraitUrl = "https://cdn.cloudflare.steamstatic.com/steam/apps/26800/library_600x900_2x.jpg";
+            var braidMatch = new GameMatch
+            {
+                OwnedGames = [new StoreGame { Store = StoreId.Steam, Id = "26800", Title = "Braid", CoverUrl = portraitUrl }],
+            };
+            await sgdb.EnrichMatchesAsync([braidMatch]);
+            if (string.IsNullOrEmpty(braidMatch.SgdbCoverUrl)) Ok("  Correctly skipped (already portrait).");
+            else Warn($"  Unexpected enrichment: {braidMatch.SgdbCoverUrl}");
         }
 
         Console.ForegroundColor = ConsoleColor.Cyan;
