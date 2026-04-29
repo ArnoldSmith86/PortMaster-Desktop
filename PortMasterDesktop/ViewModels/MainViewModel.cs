@@ -4,6 +4,7 @@ using System.IO;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using PortMasterDesktop.Models;
 using PortMasterDesktop.PortMaster;
 using PortMasterDesktop.Services;
