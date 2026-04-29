@@ -44,6 +44,10 @@ public partial class MainViewModel : ObservableObject
     public string? LastInstallLogPath { get; private set; }
     [ObservableProperty] private string _partitionStatus = "No SD card detected";
     [ObservableProperty] private string _dbStats = "";
+    [ObservableProperty] private bool _isBackgroundTaskActive;
+    [ObservableProperty] private string _backgroundTaskMessage = "";
+
+    private Task? _portMasterImagesTask;
 
     public Func<string, string, string?, Task>? ShowAlertAsync { get; set; }
 
@@ -63,6 +67,8 @@ public partial class MainViewModel : ObservableObject
 
         IsSettingsOpen = true;
         await SettingsVm.LoadCommand.ExecuteAsync(null);
+        // Refresh account names in the background — they require HTTP calls
+        _ = SettingsVm.RefreshAccountsCommand.ExecuteAsync(null);
     }
 
     public event Action? OnSettingsClosed;
@@ -77,33 +83,70 @@ public partial class MainViewModel : ObservableObject
 
     public void ApplyImageModeSetting()
     {
-        if (SettingsVm != null)
-        {
-            _usePortMasterImages = SettingsVm.UsePortMasterImages;
+        if (SettingsVm == null) return;
+        _usePortMasterImages = SettingsVm.UsePortMasterImages;
 
-            // If using PortMaster images and we haven't loaded them yet, fetch in background
-            if (SettingsVm.UsePortMasterImages && string.IsNullOrEmpty(_portMasterImagesPath))
+        // Prefer downloaded images, fallback to SD card if available
+        var imagesPath = _portMasterImagesPath;
+        if (string.IsNullOrEmpty(imagesPath) && ActivePartition != null)
+        {
+            var portMasterDir = Path.Combine(ActivePartition.MountPoint, "roms", "ports", "PortMaster");
+            imagesPath = Path.Combine(portMasterDir, "screenshots");
+        }
+
+        foreach (var game in _allMatches)
+        {
+            game.UsePortMasterImages = SettingsVm.UsePortMasterImages;
+            game.PortMasterImagesPath = imagesPath;
+        }
+
+        // If toggled on but images aren't cached yet, fetch them
+        if (SettingsVm.UsePortMasterImages && !_portMasterImages.HasCachedImages())
+            _ = EnsurePortMasterImagesAsync();
+    }
+
+    /// <summary>
+    /// Downloads the PortMaster screenshots zip if it isn't already cached, reporting
+    /// progress through the global status bar. Subsequent calls reuse the in-flight task.
+    /// </summary>
+    private Task EnsurePortMasterImagesAsync()
+    {
+        if (_portMasterImagesTask is { IsCompleted: false } running) return running;
+
+        return _portMasterImagesTask = Task.Run(async () =>
+        {
+            try
             {
-                _ = Task.Run(async () =>
+                Dispatcher.UIThread.Post(() =>
                 {
-                    _portMasterImagesPath = await _portMasterImages.EnsureImagesAsync() ?? "";
+                    BackgroundTaskMessage = "Fetching PortMaster screenshots…";
+                    IsBackgroundTaskActive = true;
+                });
+
+                var path = await _portMasterImages.EnsureImagesAsync(msg =>
+                    Dispatcher.UIThread.Post(() => BackgroundTaskMessage = msg));
+
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (!string.IsNullOrEmpty(path))
+                    {
+                        _portMasterImagesPath = path;
+                        foreach (var game in _allMatches)
+                            game.PortMasterImagesPath = path;
+                    }
+                    IsBackgroundTaskActive = false;
+                    BackgroundTaskMessage = "";
                 });
             }
-
-            // Prefer downloaded images, fallback to SD card if available
-            var imagesPath = _portMasterImagesPath;
-            if (string.IsNullOrEmpty(imagesPath) && ActivePartition != null)
+            catch
             {
-                var portMasterDir = Path.Combine(ActivePartition.MountPoint, "roms", "ports", "PortMaster");
-                imagesPath = Path.Combine(portMasterDir, "screenshots");
+                Dispatcher.UIThread.Post(() =>
+                {
+                    IsBackgroundTaskActive = false;
+                    BackgroundTaskMessage = "";
+                });
             }
-
-            foreach (var game in _allMatches)
-            {
-                game.UsePortMasterImages = SettingsVm.UsePortMasterImages;
-                game.PortMasterImagesPath = imagesPath;
-            }
-        }
+        });
     }
 
     // ── Computed properties ───────────────────────────────────────────────────
@@ -184,7 +227,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public async Task LoadAsync()
     {
-        // Load persisted setting first
+        // Load persisted display settings first (fast — no network calls)
         if (SettingsVm == null)
             SettingsVm = App.Services.GetRequiredService<SettingsViewModel>();
         await SettingsVm.LoadCommand.ExecuteAsync(null);
@@ -204,6 +247,13 @@ public partial class MainViewModel : ObservableObject
         StatusMessage = "Loading…";
         try
         {
+            // If a previous run downloaded the screenshots, pick them up cheaply
+            if (string.IsNullOrEmpty(_portMasterImagesPath))
+            {
+                var cached = _portMasterImages.GetCachedImagesPath();
+                if (cached != null) _portMasterImagesPath = cached;
+            }
+
             var (matches, partitions, storeCounts) = await _library.LoadAsync(forceRefresh,
                 msg => StatusMessage = msg);
             _allMatches = matches;
@@ -385,8 +435,9 @@ public partial class MainViewModel : ObservableObject
         double minTileWidth = 140;
         double maxTileWidth = 200;
 
-        // Make tiles 1.5x bigger when showing PortMaster images
-        if (_usePortMasterImages)
+        // Make tiles 1.5x bigger when showing PortMaster images.
+        // Ready to Run forces PortMaster screenshots regardless of the toggle.
+        if (_usePortMasterImages || ActiveFilter == LibraryFilter.ReadyToRun)
         {
             minTileWidth *= 1.5;
             maxTileWidth *= 1.5;
@@ -440,17 +491,15 @@ public partial class MainViewModel : ObservableObject
         // Force PortMaster images for ReadyToRun tab
         if (ActiveFilter == LibraryFilter.ReadyToRun)
         {
-            // Ensure images are available for RTR tab
-            if (string.IsNullOrEmpty(_portMasterImagesPath))
+            foreach (var game in games)
             {
-                _ = Task.Run(async () =>
-                {
-                    _portMasterImagesPath = await _portMasterImages.EnsureImagesAsync() ?? "";
-                });
+                game.UsePortMasterImages = true;
+                if (!string.IsNullOrEmpty(_portMasterImagesPath))
+                    game.PortMasterImagesPath = _portMasterImagesPath;
             }
 
-            foreach (var game in games)
-                game.UsePortMasterImages = true;
+            if (!_portMasterImages.HasCachedImages())
+                _ = EnsurePortMasterImagesAsync();
         }
 
         DisplayedGames = new ObservableCollection<GameMatch>(games);

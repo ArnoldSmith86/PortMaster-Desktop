@@ -7,7 +7,7 @@ namespace PortMasterDesktop.Services;
 /// </summary>
 public class PortMasterImagesService
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(60) };
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(300) };
     private readonly CacheService _cache;
     private readonly string _imagesDir;
     private const string ImagesUrlKey = "portmaster_images_url";
@@ -26,32 +26,46 @@ public class PortMasterImagesService
     /// </summary>
     public async Task<string?> EnsureImagesAsync(Action<string>? progress = null)
     {
-        // Check if already extracted
-        if (Directory.Exists(_imagesDir) && HasScreenshots())
-            return _imagesDir;
+        if (HasCachedImages()) return _imagesDir;
 
         try
         {
             Directory.CreateDirectory(_imagesDir);
 
-            progress?.Invoke("Fetching PortMaster images...");
-
             // Use direct GitHub raw CDN URL for images.zip (faster, no API parsing needed)
             // This points to the latest release of PortMaster-New
             const string ImagesZipUrl = "https://github.com/PortsMaster/PortMaster-New/releases/download/2026-04-28_1830/images.zip";
 
-            progress?.Invoke("Downloading images.zip...");
+            progress?.Invoke("Downloading PortMaster screenshots…");
             var zipPath = Path.Combine(_imagesDir, "images.zip");
 
             using (var resp = await Http.GetAsync(ImagesZipUrl, HttpCompletionOption.ResponseHeadersRead))
             {
                 if (!resp.IsSuccessStatusCode) return null;
-                using var src = await resp.Content.ReadAsStreamAsync();
-                using var dst = File.Create(zipPath);
-                await src.CopyToAsync(dst);
+                var total = resp.Content.Headers.ContentLength ?? 0;
+                await using var src = await resp.Content.ReadAsStreamAsync();
+                await using var dst = File.Create(zipPath);
+
+                var buffer = new byte[131072];
+                long downloaded = 0;
+                int read;
+                int lastReportedMb = -1;
+                while ((read = await src.ReadAsync(buffer)) > 0)
+                {
+                    await dst.WriteAsync(buffer.AsMemory(0, read));
+                    downloaded += read;
+                    int mb = (int)(downloaded / 1048576);
+                    if (mb != lastReportedMb)
+                    {
+                        lastReportedMb = mb;
+                        progress?.Invoke(total > 0
+                            ? $"Downloading screenshots… {mb} / {total / 1048576} MB"
+                            : $"Downloading screenshots… {mb} MB");
+                    }
+                }
             }
 
-            progress?.Invoke("Extracting images...");
+            progress?.Invoke("Extracting screenshots…");
             using (var zip = ZipFile.OpenRead(zipPath))
             {
                 foreach (var entry in zip.Entries)
@@ -85,7 +99,14 @@ public class PortMasterImagesService
         return File.Exists(pngPath) ? pngPath : (File.Exists(jpgPath) ? jpgPath : null);
     }
 
-    private bool HasScreenshots() =>
-        Directory.GetFiles(_imagesDir, "*.screenshot.png", SearchOption.TopDirectoryOnly).Length > 0 ||
-        Directory.GetFiles(_imagesDir, "*.screenshot.jpg", SearchOption.TopDirectoryOnly).Length > 0;
+    /// <summary>True when at least one extracted screenshot file is present on disk.</summary>
+    public bool HasCachedImages()
+    {
+        if (!Directory.Exists(_imagesDir)) return false;
+        return Directory.EnumerateFiles(_imagesDir, "*.screenshot.png").Any()
+            || Directory.EnumerateFiles(_imagesDir, "*.screenshot.jpg").Any();
+    }
+
+    /// <summary>Returns the cache path if it has actual screenshot files, else null.</summary>
+    public string? GetCachedImagesPath() => HasCachedImages() ? _imagesDir : null;
 }

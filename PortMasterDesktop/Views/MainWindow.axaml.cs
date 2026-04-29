@@ -47,6 +47,7 @@ public partial class MainWindow : Window
         FilterAllBtn.Classes.Add("active");
         FilterAvailBtn.Classes.Remove("active");
         FilterRtrBtn.Classes.Remove("active");
+        UpdateTileWidth();
     }
 
     private void OnFilterAvail(object? sender, RoutedEventArgs e)
@@ -56,6 +57,7 @@ public partial class MainWindow : Window
         FilterAvailBtn.Classes.Add("active");
         FilterAllBtn.Classes.Remove("active");
         FilterRtrBtn.Classes.Remove("active");
+        UpdateTileWidth();
     }
 
     private void OnSettingsClicked(object? sender, RoutedEventArgs e)
@@ -71,6 +73,7 @@ public partial class MainWindow : Window
         FilterRtrBtn.Classes.Add("active");
         FilterAllBtn.Classes.Remove("active");
         FilterAvailBtn.Classes.Remove("active");
+        UpdateTileWidth();
     }
 
     private void OnPortMasterImagesToggle(object? sender, PointerPressedEventArgs e)

@@ -88,13 +88,17 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     public async Task LoadAsync()
     {
+        // Fast path: persisted settings only — no per-store HTTP calls.
+        // The Settings overlay triggers RefreshAccountsAsync separately when opened.
+        var saved = await _cache.LoadJsonAsync<bool>("use_portmaster_images");
+        UsePortMasterImages = saved;
+    }
+
+    [RelayCommand]
+    public async Task RefreshAccountsAsync()
+    {
         IsLoading = true;
-        try
-        {
-            await Task.WhenAll(Accounts.Select(a => a.RefreshAsync()));
-            var saved = await _cache.LoadJsonAsync<bool>("use_portmaster_images");
-            UsePortMasterImages = saved;
-        }
+        try { await Task.WhenAll(Accounts.Select(a => a.RefreshAsync())); }
         finally { IsLoading = false; }
     }
 

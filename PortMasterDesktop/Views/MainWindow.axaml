@@ -199,7 +199,16 @@
                 Background="#12122a" Padding="14,9">
             <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="2" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
+                    <!-- Background-task progress (e.g. PortMaster screenshot download) -->
+                    <StackPanel Orientation="Vertical" Spacing="2"
+                                IsVisible="{Binding IsBackgroundTaskActive}">
+                        <TextBlock Text="{Binding BackgroundTaskMessage}" FontSize="12"
+                                   Foreground="#b0b0cc" VerticalAlignment="Center"/>
+                        <ProgressBar IsIndeterminate="True" Height="3" Width="220"
+                                     HorizontalAlignment="Left"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6"
+                                IsVisible="{Binding !IsBackgroundTaskActive}">
                         <TextBlock Text="{Binding PartitionStatus}" FontSize="12"
                                    VerticalAlignment="Center"
                                    Foreground="{Binding PartitionStatus,
