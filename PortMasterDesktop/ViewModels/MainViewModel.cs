@@ -322,21 +322,25 @@ public partial class MainViewModel : ObservableObject
 
     public void UpdateTileWidth(double availableWidth)
     {
-        const int minTileWidth = 140;
-        const int maxTileWidth = 200;
-        const int itemMargin = 4;  // Margin around each card (both sides)
-        const int containerMargin = 8;  // Outer margin
+        const double minTileWidth = 140;
+        const double maxTileWidth = 200;
+        const double itemMargin = 4;  // Margin around each card
+        const double containerMargin = 8;  // Container outer margin
 
-        // Effective width after removing container margins
-        double effectiveWidth = availableWidth - 2 * containerMargin;
+        // Account for container margins and minimum sizing
+        double workingWidth = availableWidth - 2 * containerMargin;
+        if (workingWidth < minTileWidth + 2 * itemMargin)
+            workingWidth = minTileWidth + 2 * itemMargin;
 
-        // Calculate how many tiles fit
-        int columns = (int)((effectiveWidth + 2 * itemMargin) / (minTileWidth + 2 * itemMargin));
-        columns = Math.Max(1, columns);
+        // Calculate how many columns can fit with minimum tile width + margins
+        double tileWithMargins = minTileWidth + 2 * itemMargin;
+        int columns = Math.Max(1, (int)(workingWidth / tileWithMargins));
 
-        // Distribute width evenly across columns, accounting for all margins
-        // Formula: (effectiveWidth - margins) / columns
-        double tileWidth = (effectiveWidth - (columns - 1) * 2 * itemMargin) / columns - 2 * itemMargin;
+        // Distribute width evenly: each tile gets its fair share minus margins
+        // Total tile space = workingWidth - (columns * 2 * itemMargin)
+        // Per-tile = (workingWidth - columns * 2 * itemMargin) / columns
+        double totalMarginWidth = columns * 2 * itemMargin;
+        double tileWidth = (workingWidth - totalMarginWidth) / columns;
         tileWidth = Math.Min(maxTileWidth, Math.Max(minTileWidth, tileWidth));
 
         TileWidth = tileWidth;

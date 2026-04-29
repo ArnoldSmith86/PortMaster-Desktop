@@ -217,10 +217,10 @@
 
         <!-- Settings overlay (full screen) -->
         <Grid IsVisible="{Binding IsSettingsOpen}" Background="#0d0d1a">
-            <!-- Responsive columns: split on wide, stack on narrow -->
+            <!-- Responsive columns: 1:1 split -->
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="300"/>
-                <ColumnDefinition Width="*" MinWidth="300"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
             <!-- Close button (top-right) -->
@@ -228,10 +228,10 @@
                     Command="{Binding CloseSettingsCommand}"
                     HorizontalAlignment="Right" VerticalAlignment="Top"
                     Margin="8" Width="34" Height="34"
-                    Grid.Column="1" Grid.ColumnSpan="1" ZIndex="10"/>
+                    Grid.Column="1" ZIndex="10"/>
 
-            <!-- Left: Accounts (or top on narrow) -->
-            <ScrollViewer Grid.Column="0" Grid.ColumnSpan="2" BorderBrush="#2d2d52" BorderThickness="0,0,0,1">
+            <!-- Left: Accounts -->
+            <ScrollViewer Grid.Column="0" BorderBrush="#2d2d52" BorderThickness="0,0,1,0">
                 <StackPanel Margin="20,60,20,20" Spacing="20">
                     <StackPanel Spacing="10">
                         <TextBlock Text="GAME STORE ACCOUNTS" FontSize="12" FontWeight="Bold"
@@ -300,8 +300,8 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <!-- Right: Settings & About (or bottom on narrow) -->
-            <ScrollViewer Grid.Column="1" Grid.ColumnSpan="1" Grid.Row="0">
+            <!-- Right: Settings & About -->
+            <ScrollViewer Grid.Column="1" BorderBrush="#2d2d52" BorderThickness="0,0,0,0">
                 <StackPanel Margin="20,60,20,20" Spacing="20">
                     <!-- About -->
                     <StackPanel Spacing="8">

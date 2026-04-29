@@ -113,9 +113,8 @@ public class SteamGridDbService
     {
         foreach (var match in matches)
         {
-            // Clear any previously fetched SGDB URL so we re-fetch
-            match.SgdbCoverUrl = null;
-
+            // Don't clear SgdbCoverUrl - preserve manually set or previously fetched covers
+            // Only invalidate the lookup caches so we re-query SGDB
             foreach (var game in match.OwnedGames)
             {
                 // Invalidate dimension cache by URL
