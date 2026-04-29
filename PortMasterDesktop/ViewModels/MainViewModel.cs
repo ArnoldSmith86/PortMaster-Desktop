@@ -31,6 +31,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _statusMessage = "Loading…";
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowBackgroundTask))]
+    [NotifyPropertyChangedFor(nameof(IsEmpty))]
     private bool _isLoading;
     [ObservableProperty] private double _installProgress;
     [ObservableProperty] private string _installMessage = "";
