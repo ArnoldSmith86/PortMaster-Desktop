@@ -39,24 +39,34 @@ public class SteamGridDbService
         if (forceRefresh)
             InvalidateCacheForMatches(matches);
 
-        await EnrichMatchesInternalAsync(matches, setUrl, ct);
+        await EnrichMatchesInternalAsync(matches, setUrl, ct, forceRefresh);
     }
 
     private async Task EnrichMatchesInternalAsync(
         IEnumerable<GameMatch> matches,
         Action<GameMatch, string>? setUrl = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool forceRefresh = false)
     {
         if (string.IsNullOrEmpty(_apiKey)) return;
 
         setUrl ??= static (m, u) => m.SgdbCoverUrl = u;
 
-        // Sync pre-filter: skip matches where every owned game is a known portrait format
-        var candidates = matches
-            .Where(m => m.OwnedGames.Any(g => !IsKnownPortrait(g)))
-            .ToList();
-        System.Diagnostics.Debug.WriteLine($"[SteamGridDb] Enriching {candidates.Count} matches");
-        if (candidates.Count == 0) return;
+        IEnumerable<GameMatch> candidates;
+        if (forceRefresh)
+        {
+            // Manual refresh: try all games regardless of portrait detection
+            candidates = matches.ToList();
+        }
+        else
+        {
+            // Automatic: skip matches where every owned game is a known portrait format
+            candidates = matches
+                .Where(m => m.OwnedGames.Any(g => !IsKnownPortrait(g)))
+                .ToList();
+        }
+
+        System.Diagnostics.Debug.WriteLine($"[SteamGridDb] Enriching {candidates.Count()} matches (forceRefresh={forceRefresh})");
 
         var sem = new SemaphoreSlim(3);
         await Task.WhenAll(candidates.Select(async match =>
@@ -64,18 +74,23 @@ public class SteamGridDbService
             await sem.WaitAsync(ct);
             try
             {
-                foreach (var game in match.OwnedGames.Where(g => !IsKnownPortrait(g)))
+                // For forced refresh, try all games; otherwise skip known portrait games
+                var gamesToCheck = forceRefresh
+                    ? match.OwnedGames
+                    : match.OwnedGames.Where(g => !IsKnownPortrait(g));
+
+                foreach (var game in gamesToCheck)
                 {
                     System.Diagnostics.Debug.WriteLine($"[SteamGridDb] Checking {game.Store} {game.Id} ({game.Title})");
 
-                    // Skip if actual image dimensions confirm ~2:3 portrait
-                    if (await IsPortrait23Async(game, ct))
+                    // Skip if actual image dimensions confirm ~2:3 portrait (unless forced)
+                    if (!forceRefresh && await IsPortrait23Async(game, ct))
                     {
                         System.Diagnostics.Debug.WriteLine($"[SteamGridDb]   → Already portrait");
                         continue;
                     }
 
-                    System.Diagnostics.Debug.WriteLine($"[SteamGridDb]   → Not portrait, fetching SGDB cover");
+                    System.Diagnostics.Debug.WriteLine($"[SteamGridDb]   → Fetching SGDB cover");
                     var url = await TryGetGridCoverAsync(game.Store, game.Id, game.Title, ct);
                     if (!string.IsNullOrEmpty(url))
                     {
