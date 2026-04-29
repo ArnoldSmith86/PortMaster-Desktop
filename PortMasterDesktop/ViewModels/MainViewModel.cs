@@ -365,7 +365,7 @@ public partial class MainViewModel : ObservableObject
                 m.DisplayTitle.Contains(q, StringComparison.OrdinalIgnoreCase) ||
                 (m.Port?.Attr.Genres?.Any(g => g.Contains(q, StringComparison.OrdinalIgnoreCase)) ?? false));
 
-        DisplayedGames = new ObservableCollection<GameMatch>(src);
+        DisplayedGames = new ObservableCollection<GameMatch>(src.OrderBy(m => m.DisplayTitle));
         OnPropertyChanged(nameof(CanInstall));
         OnPropertyChanged(nameof(NoPartitionDetected));
         OnPropertyChanged(nameof(NoWritePermission));
