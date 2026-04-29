@@ -195,12 +195,15 @@ public partial class MainViewModel : ObservableObject
         StatusMessage = "Loading…";
         try
         {
-            // Download PortMaster images in background
-            _ = Task.Run(async () =>
+            // Download PortMaster images in background only if using PortMaster mode or RTR filter
+            if (SettingsVm?.UsePortMasterImages == true || ActiveFilter == LibraryFilter.ReadyToRun)
             {
-                _portMasterImagesPath = await _portMasterImages.EnsureImagesAsync(
-                    msg => StatusMessage = msg) ?? "";
-            });
+                _ = Task.Run(async () =>
+                {
+                    _portMasterImagesPath = await _portMasterImages.EnsureImagesAsync(
+                        msg => StatusMessage = msg) ?? "";
+                });
+            }
 
             var (matches, partitions, storeCounts) = await _library.LoadAsync(forceRefresh,
                 msg => StatusMessage = msg);
