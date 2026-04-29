@@ -55,6 +55,7 @@ public class SteamGridDbService
         var candidates = matches
             .Where(m => m.OwnedGames.Any(g => !IsKnownPortrait(g)))
             .ToList();
+        System.Diagnostics.Debug.WriteLine($"[SteamGridDb] Enriching {candidates.Count} matches");
         if (candidates.Count == 0) return;
 
         var sem = new SemaphoreSlim(3);
@@ -65,14 +66,26 @@ public class SteamGridDbService
             {
                 foreach (var game in match.OwnedGames.Where(g => !IsKnownPortrait(g)))
                 {
-                    // Skip if actual image dimensions confirm ~2:3 portrait
-                    if (await IsPortrait23Async(game, ct)) continue;
+                    System.Diagnostics.Debug.WriteLine($"[SteamGridDb] Checking {game.Store} {game.Id} ({game.Title})");
 
+                    // Skip if actual image dimensions confirm ~2:3 portrait
+                    if (await IsPortrait23Async(game, ct))
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[SteamGridDb]   → Already portrait");
+                        continue;
+                    }
+
+                    System.Diagnostics.Debug.WriteLine($"[SteamGridDb]   → Not portrait, fetching SGDB cover");
                     var url = await TryGetGridCoverAsync(game.Store, game.Id, game.Title, ct);
                     if (!string.IsNullOrEmpty(url))
                     {
+                        System.Diagnostics.Debug.WriteLine($"[SteamGridDb]   → Got cover: {url}");
                         setUrl(match, url);
                         break;
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[SteamGridDb]   → No SGDB cover found");
                     }
                 }
             }
@@ -85,6 +98,9 @@ public class SteamGridDbService
     {
         foreach (var match in matches)
         {
+            // Clear any previously fetched SGDB URL so we re-fetch
+            match.SgdbCoverUrl = null;
+
             foreach (var game in match.OwnedGames)
             {
                 // Invalidate dimension cache by URL
@@ -92,6 +108,7 @@ public class SteamGridDbService
                 // Invalidate SGDB lookups
                 _cache.Invalidate($"sgdb_{game.Store}_{game.Id}");
                 _cache.Invalidate($"sgdb_ns_{game.Store}_{game.Id}");
+                System.Diagnostics.Debug.WriteLine($"[SteamGridDb] Invalidated cache for {game.Store} {game.Id}");
             }
         }
     }
