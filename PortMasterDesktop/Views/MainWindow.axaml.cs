@@ -46,6 +46,7 @@ public partial class MainWindow : Window
         vm.SetFilterCommand.Execute(LibraryFilter.All);
         FilterAllBtn.Classes.Add("active");
         FilterAvailBtn.Classes.Remove("active");
+        FilterRtrBtn.Classes.Remove("active");
     }
 
     private void OnFilterAvail(object? sender, RoutedEventArgs e)
@@ -54,6 +55,7 @@ public partial class MainWindow : Window
         vm.SetFilterCommand.Execute(LibraryFilter.PortMasterAvailable);
         FilterAvailBtn.Classes.Add("active");
         FilterAllBtn.Classes.Remove("active");
+        FilterRtrBtn.Classes.Remove("active");
     }
 
     private void OnSettingsClicked(object? sender, RoutedEventArgs e)

@@ -90,6 +90,9 @@ public partial class GameMatch : ObservableObject
                 if (File.Exists(pngPath)) return $"file://{pngPath}";
                 if (File.Exists(jpgPath)) return $"file://{jpgPath}";
             }
+            // If using PortMaster and local file not found, fall back to remote screenshot
+            if (UsePortMasterImages && !string.IsNullOrEmpty(Port?.ScreenshotUrl))
+                return Port.ScreenshotUrl;
             if (!UsePortMasterImages && !string.IsNullOrEmpty(SgdbCoverUrl))
                 return SgdbCoverUrl;
             return OwnedGames.FirstOrDefault(g => !string.IsNullOrEmpty(g.CoverUrl))?.CoverUrl ?? "";
