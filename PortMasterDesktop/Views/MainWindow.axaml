@@ -33,6 +33,8 @@
                             Classes="filter" Click="OnFilterAll"/>
                     <Button x:Name="FilterAvailBtn" Content="Available"
                             Classes="filter active" Click="OnFilterAvail"/>
+                    <Button x:Name="FilterRtrBtn" Content="Ready to Run"
+                            Classes="filter" Click="OnFilterRtr"/>
                 </StackPanel>
 
                 <TextBox Grid.Column="2"
@@ -171,8 +173,14 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
                             VerticalAlignment="Center">
                     <Button Content="🖼 Get Cover" Classes="secondary" ToolTip.Tip="Download cover from SteamGridDB"
-                            Command="{Binding RefreshGameCoverCommand}"
-                            IsVisible="{Binding HasSelectedGame}"/>
+                            Command="{Binding RefreshGameCoverCommand}">
+                        <Button.IsVisible>
+                            <MultiBinding Converter="{x:Static conv:AndNotConverter.Instance}">
+                                <Binding Path="HasSelectedGame"/>
+                                <Binding Path="SelectedGame.UsePortMasterImages"/>
+                            </MultiBinding>
+                        </Button.IsVisible>
+                    </Button>
                     <Button Content="🔗 Details" Classes="secondary"
                             Command="{Binding OpenDetailPageCommand}"
                             IsVisible="{Binding SelectedGame.HasPort}"/>

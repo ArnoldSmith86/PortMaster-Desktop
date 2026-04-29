@@ -62,6 +62,15 @@ public partial class MainWindow : Window
             vm.OpenSettingsCommand.Execute(null);
     }
 
+    private void OnFilterRtr(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm) return;
+        vm.SetFilterCommand.Execute(LibraryFilter.ReadyToRun);
+        FilterRtrBtn.Classes.Add("active");
+        FilterAllBtn.Classes.Remove("active");
+        FilterAvailBtn.Classes.Remove("active");
+    }
+
     private void OnPortMasterImagesToggle(object? sender, PointerPressedEventArgs e)
     {
         if (DataContext is MainViewModel vm && vm.SettingsVm != null)

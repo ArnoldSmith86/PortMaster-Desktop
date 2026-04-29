@@ -2,6 +2,7 @@ using System.Globalization;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
 using PortMasterDesktop.Models;
+using System.Collections.Generic;
 
 namespace PortMasterDesktop.Converters;
 
@@ -129,4 +130,14 @@ public class AspectRatioToHeightConverter : IValueConverter
     }
     public object ConvertBack(object? v, Type t, object? p, CultureInfo c)
         => throw new NotSupportedException();
+}
+
+public class AndNotConverter : IMultiValueConverter
+{
+    public static readonly AndNotConverter Instance = new();
+    public object? Convert(IList<object?> values, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (values.Count < 2) return false;
+        return values[0] is bool b1 && values[1] is bool b2 && b1 && !b2;
+    }
 }

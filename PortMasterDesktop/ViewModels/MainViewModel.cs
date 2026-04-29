@@ -11,7 +11,7 @@ using PortMasterDesktop.Services;
 
 namespace PortMasterDesktop.ViewModels;
 
-public enum LibraryFilter { All, PortMasterAvailable }
+public enum LibraryFilter { All, PortMasterAvailable, ReadyToRun }
 
 public partial class MainViewModel : ObservableObject
 {
@@ -420,6 +420,8 @@ public partial class MainViewModel : ObservableObject
 
         IEnumerable<GameMatch> src = ActiveFilter switch
         {
+            // "Ready to Run" = ports that don't need game files
+            LibraryFilter.ReadyToRun => _allMatches.Where(m => m.HasPort && m.Port!.Attr.Rtr),
             // "Available" = owned games that have a PortMaster port
             LibraryFilter.PortMasterAvailable => _allMatches.Where(m => m.HasPort && m.HasOwnedGame),
             // "All Games" = every owned game (with or without a port)
@@ -431,7 +433,16 @@ public partial class MainViewModel : ObservableObject
                 m.DisplayTitle.Contains(q, StringComparison.OrdinalIgnoreCase) ||
                 (m.Port?.Attr.Genres?.Any(g => g.Contains(q, StringComparison.OrdinalIgnoreCase)) ?? false));
 
-        DisplayedGames = new ObservableCollection<GameMatch>(src.OrderBy(m => m.DisplayTitle));
+        var games = src.OrderBy(m => m.DisplayTitle).ToList();
+
+        // Force PortMaster images for ReadyToRun tab
+        if (ActiveFilter == LibraryFilter.ReadyToRun)
+        {
+            foreach (var game in games)
+                game.UsePortMasterImages = true;
+        }
+
+        DisplayedGames = new ObservableCollection<GameMatch>(games);
         OnPropertyChanged(nameof(CanInstall));
         OnPropertyChanged(nameof(NoPartitionDetected));
         OnPropertyChanged(nameof(NoWritePermission));
