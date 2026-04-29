@@ -71,6 +71,9 @@ public partial class SettingsViewModel : ObservableObject
     public ObservableCollection<StoreAccountItem> Accounts { get; } = [];
     [ObservableProperty] private bool _isLoading;
 
+    public string Version => typeof(SettingsViewModel).Assembly
+        .GetName().Version?.ToString(3) ?? "1.0.0";
+
     public SettingsViewModel(IEnumerable<IGameStore> stores)
     {
         foreach (var s in stores)

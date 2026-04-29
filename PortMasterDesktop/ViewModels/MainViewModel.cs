@@ -32,6 +32,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<string> _installSteps = [];
     [ObservableProperty] private bool _showInstallLog;
     [ObservableProperty] private PartitionInfo? _activePartition;
+    [ObservableProperty] private double _tileWidth = 160;
+    [ObservableProperty] private bool _isSettingsOpen;
+    [ObservableProperty] private SettingsViewModel? _settingsVm;
 
     private StreamWriter? _installLogWriter;
     public string? LastInstallLogPath { get; private set; }
@@ -45,6 +48,22 @@ public partial class MainViewModel : ObservableObject
         _library = library;
         _installer = installer;
         _steamGridDb = steamGridDb;
+    }
+
+    [RelayCommand]
+    public async Task OpenSettings()
+    {
+        if (SettingsVm == null)
+            SettingsVm = App.Services.GetRequiredService<SettingsViewModel>();
+
+        IsSettingsOpen = true;
+        await SettingsVm.LoadCommand.ExecuteAsync(null);
+    }
+
+    [RelayCommand]
+    public void CloseSettings()
+    {
+        IsSettingsOpen = false;
     }
 
     // ── Computed properties ───────────────────────────────────────────────────
@@ -298,6 +317,23 @@ public partial class MainViewModel : ObservableObject
         await _steamGridDb.EnrichMatchesAsync(new[] { SelectedGame },
             setUrl: (m, u) => Dispatcher.UIThread.Post(() => m.SgdbCoverUrl = u),
             forceRefresh: true);
+    }
+
+    public void UpdateTileWidth(double availableWidth)
+    {
+        const int minTileWidth = 140;
+        const int maxTileWidth = 200;
+        const int margin = 8;
+
+        // Calculate how many tiles fit
+        int columns = (int)((availableWidth - margin) / (minTileWidth + 2 * margin));
+        columns = Math.Max(1, columns);
+
+        // Distribute width evenly across columns
+        double tileWidth = (availableWidth - margin) / columns - 2 * margin;
+        tileWidth = Math.Min(maxTileWidth, Math.Max(minTileWidth, tileWidth));
+
+        TileWidth = tileWidth;
     }
 
     // ── Internal ──────────────────────────────────────────────────────────────

@@ -51,11 +51,13 @@
         </Border>
 
         <!-- ═══ CONTENT AREA ══════════════════════════════════════════════════ -->
-        <Grid Grid.Row="1">
+        <!-- Games view -->
+        <Grid Grid.Row="1" IsVisible="{Binding !IsSettingsOpen}">
 
             <!-- Game grid (shown when not loading and games exist) -->
             <ScrollViewer IsVisible="{Binding !IsLoading}"
-                          PointerPressed="OnScrollViewerPressed">
+                          PointerPressed="OnScrollViewerPressed"
+                          x:Name="GameScrollViewer">
                 <ItemsControl ItemsSource="{Binding DisplayedGames}" Margin="8,8,8,0">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -64,7 +66,7 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="models:GameMatch">
-                            <views:GameCard Width="160" Margin="4"
+                            <views:GameCard Width="{Binding $parent[ItemsControl].DataContext.TileWidth}" Margin="4"
                                             PointerPressed="OnGameCardPressed"/>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -89,6 +91,107 @@
                                FontSize="14" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
+
+        </Grid>
+
+        <!-- Settings view -->
+        <Grid Grid.Row="1" IsVisible="{Binding IsSettingsOpen}" ColumnDefinitions="*,*" Background="#0d0d1a">
+
+            <!-- Left: Accounts -->
+            <ScrollViewer Grid.Column="0" BorderBrush="#2d2d52" BorderThickness="0,0,1,0">
+                <StackPanel Margin="20" Spacing="20">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="GAME STORE ACCOUNTS" FontSize="12" FontWeight="Bold"
+                                   Foreground="#6a6a8a" LetterSpacing="1.5"/>
+
+                        <ItemsControl ItemsSource="{Binding SettingsVm.Accounts}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:StoreAccountItem">
+                                    <Border Background="#1e1e38" CornerRadius="10"
+                                            BorderBrush="#2d2d52" BorderThickness="1"
+                                            Padding="14,12" Margin="0,0,0,8">
+                                        <Grid ColumnDefinitions="Auto,*,Auto">
+
+                                            <!-- Avatar -->
+                                            <Border Grid.Column="0" Background="#6c63ff"
+                                                    CornerRadius="8" Width="40" Height="40"
+                                                    Margin="0,0,12,0">
+                                                <TextBlock Text="{Binding StoreName,
+                                                               Converter={x:Static conv:StoreInitialConverter.Instance}}"
+                                                           FontSize="16" FontWeight="Bold"
+                                                           Foreground="White"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"/>
+                                            </Border>
+
+                                            <!-- Name + status -->
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                                <TextBlock Text="{Binding StoreName}"
+                                                           FontSize="15" FontWeight="Bold"
+                                                           Foreground="#e8e8f4"/>
+                                                <TextBlock Foreground="#6a6a8a" FontSize="12"
+                                                           IsVisible="{Binding IsAuthenticated}"
+                                                           Text="{Binding AccountName,
+                                                               StringFormat='Logged in as {0}'}"/>
+                                                <TextBlock Text="Not logged in"
+                                                           FontSize="12" Foreground="#6a6a8a"
+                                                           IsVisible="{Binding !IsAuthenticated}"/>
+                                            </StackPanel>
+
+                                            <!-- Buttons -->
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                        VerticalAlignment="Center" Spacing="6">
+                                                <ProgressBar IsIndeterminate="True"
+                                                             IsVisible="{Binding IsBusy}"
+                                                             Width="22" Height="22"/>
+                                                <Button Content="Login" Classes="primary"
+                                                        Command="{Binding LoginCommand}"
+                                                        IsVisible="{Binding !IsAuthenticated}"
+                                                        IsEnabled="{Binding !IsBusy}"/>
+                                                <Button Content="Configure" Classes="secondary"
+                                                        Command="{Binding ConfigureCommand}"
+                                                        IsVisible="{Binding IsAuthenticated}"
+                                                        IsEnabled="{Binding !IsBusy}"/>
+                                                <Button Content="Logout" Classes="secondary"
+                                                        Command="{Binding LogoutCommand}"
+                                                        IsVisible="{Binding IsAuthenticated}"
+                                                        IsEnabled="{Binding !IsBusy}"/>
+                                            </StackPanel>
+
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Right: Settings & About -->
+            <ScrollViewer Grid.Column="1">
+                <StackPanel Margin="20" Spacing="20">
+                    <!-- About -->
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="ABOUT" FontSize="12" FontWeight="Bold"
+                                   Foreground="#6a6a8a" LetterSpacing="1.5"/>
+                        <Border Background="#1e1e38" CornerRadius="10"
+                                BorderBrush="#2d2d52" BorderThickness="1" Padding="14,12">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="PortMaster Desktop" FontSize="15"
+                                           FontWeight="Bold" Foreground="#e8e8f4"/>
+                                <TextBlock Text="{Binding SettingsVm.Version, StringFormat='Version {0}'}"
+                                           FontSize="12" Foreground="#6a6a8a"/>
+                                <TextBlock Text="Install PortMaster ports with your game library."
+                                           FontSize="12" Foreground="#6a6a8a" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Close button -->
+                    <Button Content="← Back" Classes="secondary"
+                            Command="{Binding CloseSettingsCommand}"/>
+                </StackPanel>
+            </ScrollViewer>
 
         </Grid>
 

@@ -21,8 +21,22 @@ public partial class MainWindow : Window
             {
                 vm.ShowAlertAsync = ShowAlertAsync;
                 await vm.LoadCommand.ExecuteAsync(null);
+                UpdateTileWidth();
             }
         };
+
+        if (this.FindControl<ScrollViewer>("GameScrollViewer") is ScrollViewer scrollViewer)
+        {
+            scrollViewer.SizeChanged += (_, _) => UpdateTileWidth();
+        }
+    }
+
+    private void UpdateTileWidth()
+    {
+        if (DataContext is not MainViewModel vm) return;
+        if (this.FindControl<ScrollViewer>("GameScrollViewer") is not ScrollViewer scrollViewer) return;
+
+        vm.UpdateTileWidth(scrollViewer.Bounds.Width - 16); // 16 = margins
     }
 
     private void OnFilterAll(object? sender, RoutedEventArgs e)
@@ -41,11 +55,10 @@ public partial class MainWindow : Window
         FilterAllBtn.Classes.Remove("active");
     }
 
-    private async void OnSettingsClicked(object? sender, RoutedEventArgs e)
+    private void OnSettingsClicked(object? sender, RoutedEventArgs e)
     {
-        var settingsVm = App.Services.GetRequiredService<SettingsViewModel>();
-        var dlg = new SettingsWindow { DataContext = settingsVm };
-        await dlg.ShowDialog(this);
+        if (DataContext is MainViewModel vm)
+            vm.OpenSettingsCommand.Execute(null);
     }
 
     private void OnGameCardPressed(object? sender, PointerPressedEventArgs e)

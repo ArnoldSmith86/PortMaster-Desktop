@@ -95,7 +95,7 @@
                         <StackPanel Spacing="4">
                             <TextBlock Text="PortMaster Desktop" FontSize="15"
                                        FontWeight="Bold" Foreground="#e8e8f4"/>
-                            <TextBlock Text="Version 1.0.0" FontSize="12" Foreground="#6a6a8a"/>
+                            <TextBlock Text="{Binding Version, StringFormat='Version {0}'}" FontSize="12" Foreground="#6a6a8a"/>
                             <TextBlock Text="Install PortMaster ports with your game library."
                                        FontSize="12" Foreground="#6a6a8a" TextWrapping="Wrap"/>
                         </StackPanel>
