@@ -141,22 +141,49 @@ jobs:
 
       # ── Release ───────────────────────────────────────────────────────────
 
+      - name: Build release notes
+        run: |
+          APP_VERSION="${{ steps.version.outputs.app_version }}"
+          NOTES_FILE=release-notes.md
+
+          # Pull the section for this version out of CHANGELOG.md
+          # (lines between "## $APP_VERSION" and the next "## " heading).
+          SECTION=$(awk -v ver="$APP_VERSION" '
+            $0 ~ "^## "ver"( |$)" { found=1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md)
+
+          {
+            if [[ -n "$SECTION" ]]; then
+              echo "## What's new in $APP_VERSION"
+              echo "$SECTION"
+            else
+              echo "_No CHANGELOG entry for $APP_VERSION yet._"
+              echo
+            fi
+            echo "---"
+            echo "Built from commit ${{ github.sha }}"
+            echo
+            echo "| File | Platform |"
+            echo "|------|----------|"
+            echo "| \`*-x86_64.AppImage\` | Linux x64 |"
+            echo "| \`*-windows-x64.exe\` | Windows x64 |"
+            echo "| \`*-macos-x64.zip\` | macOS Intel |"
+            echo "| \`*-macos-arm64.zip\` | macOS Apple Silicon |"
+            echo
+            echo "**macOS note:** right-click → Open the first time to bypass Gatekeeper, or run \`xattr -dr com.apple.quarantine PortMasterDesktop\` after unzipping."
+          } > "$NOTES_FILE"
+
+          echo "──── release-notes.md ────"
+          cat "$NOTES_FILE"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: PortMaster Desktop ${{ steps.version.outputs.tag }}
-          body: |
-            Built from commit ${{ github.sha }}
-
-            | File | Platform |
-            |------|----------|
-            | `*-x86_64.AppImage` | Linux x64 |
-            | `*-windows-x64.exe` | Windows x64 |
-            | `*-macos-x64.zip` | macOS Intel |
-            | `*-macos-arm64.zip` | macOS Apple Silicon |
-
-            **macOS note:** right-click → Open the first time to bypass Gatekeeper, or run `xattr -dr com.apple.quarantine PortMasterDesktop` after unzipping.
+          body_path: release-notes.md
           files: |
             PortMasterDesktop-*.AppImage
             PortMasterDesktop-*.exe
