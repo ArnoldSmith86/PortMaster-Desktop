@@ -132,9 +132,9 @@ jobs:
       - name: Build Windows Installer
         run: |
           makensis \
-            /DAPP_VERSION="${{ steps.version.outputs.app_version }}" \
-            "/DEXE_SRC=$(pwd)/publish/win-x64/PortMasterDesktop.exe" \
-            "/DICON_SRC=$(pwd)/PortMasterDesktop/Resources/AppIcon/portmaster.ico" \
+            -DAPP_VERSION="${{ steps.version.outputs.app_version }}" \
+            "-DEXE_SRC=$(pwd)/publish/win-x64/PortMasterDesktop.exe" \
+            "-DICON_SRC=$(pwd)/PortMasterDesktop/Resources/AppIcon/portmaster.ico" \
             installer/windows-installer.nsi
 
       # ── macOS ─────────────────────────────────────────────────────────────

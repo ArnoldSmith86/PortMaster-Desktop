@@ -17,7 +17,7 @@
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_SLUG}"
 
 Name        "${APP_NAME} ${APP_VERSION}"
-OutFile     "..\PortMasterDesktop-${APP_VERSION}-windows-x64-setup.exe"
+OutFile     "../PortMasterDesktop-${APP_VERSION}-windows-x64-setup.exe"
 InstallDir  "${INSTALL_DIR}"
 InstallDirRegKey HKLM "${UNINSTALL_KEY}" "InstallLocation"
 
