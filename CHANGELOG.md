@@ -4,6 +4,32 @@ All notable user-facing changes to PortMaster Desktop are documented here. This
 project follows [Semantic Versioning](https://semver.org/) and the format is
 inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.2.2 — 2026-05-02
+
+### Added
+- **Application log file** written on every run under
+  `portmaster-desktop/logs/` (last 9 files kept). Logs system info, OS
+  version, every HTTP call with timing and response size, which SD card
+  candidates were checked and why each was accepted or rejected, which stores
+  are authenticated, and per-store game counts. Credentials, tokens, and API
+  keys are never written — itch.io path-embedded keys are redacted, all query
+  strings stripped, auth headers not logged.
+- **Custom destination path** in Settings — type any path that ends in
+  `/ports` to override auto-detection (e.g. when the card is mounted at an
+  unusual location). Takes effect as soon as Settings are closed.
+- **`ports/PortMaster` layout** is now detected in addition to `roms/ports`,
+  covering devices where the ports folder sits directly at the card root.
+- **Windows installer** (`*-windows-x64-setup.exe`) — installs to
+  `%ProgramFiles%\PortMaster Desktop\`, creates a Start Menu shortcut, and
+  registers with Add/Remove Programs. The plain EXE is still offered as
+  `*-windows-x64-portable.exe` for users who prefer no install.
+- **Windows taskbar / Explorer icon** — the exe now embeds the PortMaster
+  icon at all standard sizes (16 → 256 px).
+
+### Fixed
+- SD card detection on Windows was not finding cards whose ports directory
+  follows the `ports/PortMaster` layout.
+
 ## 0.2.1 — 2026-05-01
 
 ### Fixed
