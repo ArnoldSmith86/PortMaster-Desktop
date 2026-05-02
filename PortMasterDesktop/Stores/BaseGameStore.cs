@@ -10,11 +10,11 @@ namespace PortMasterDesktop.Stores;
 /// </summary>
 public abstract class BaseGameStore : IGameStore
 {
-    protected static readonly HttpClient Http = new(new HttpClientHandler
+    protected static readonly HttpClient Http = new(new LoggingHttpHandler(new HttpClientHandler
     {
         AllowAutoRedirect = true,
         UseCookies = true,
-    })
+    }))
     {
         Timeout = TimeSpan.FromSeconds(30),
     };

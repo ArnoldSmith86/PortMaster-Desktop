@@ -18,6 +18,21 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
+      - name: Install build tools
+        run: sudo apt-get install -y imagemagick nsis
+
+      - name: Generate Windows icon
+        run: |
+          convert PortMasterDesktop/Resources/AppIcon/portmaster.png \
+            \( -clone 0 -resize 256x256 \) \
+            \( -clone 0 -resize 128x128 \) \
+            \( -clone 0 -resize 64x64 \) \
+            \( -clone 0 -resize 48x48 \) \
+            \( -clone 0 -resize 32x32 \) \
+            \( -clone 0 -resize 16x16 \) \
+            -delete 0 \
+            PortMasterDesktop/Resources/AppIcon/portmaster.ico
+
       - name: Compute version tag
         id: version
         run: |
@@ -98,7 +113,7 @@ jobs:
 
       # ── Windows ───────────────────────────────────────────────────────────
 
-      - name: Publish & package Windows
+      - name: Publish Windows
         env:
           STEAMGRIDDB_API_KEY: ${{ secrets.STEAMGRIDDB_API_KEY }}
         run: |
@@ -108,8 +123,19 @@ jobs:
             -p:PublishSingleFile=true \
             -p:IncludeNativeLibrariesForSelfExtract=true \
             --nologo
+
+      - name: Package Windows Portable
+        run: |
           cp publish/win-x64/PortMasterDesktop.exe \
-            "PortMasterDesktop-${{ steps.version.outputs.app_version }}-windows-x64.exe"
+            "PortMasterDesktop-${{ steps.version.outputs.app_version }}-windows-x64-portable.exe"
+
+      - name: Build Windows Installer
+        run: |
+          makensis \
+            /DAPP_VERSION="${{ steps.version.outputs.app_version }}" \
+            "/DEXE_SRC=$(pwd)/publish/win-x64/PortMasterDesktop.exe" \
+            "/DICON_SRC=$(pwd)/PortMasterDesktop/Resources/AppIcon/portmaster.ico" \
+            installer/windows-installer.nsi
 
       # ── macOS ─────────────────────────────────────────────────────────────
 
@@ -165,12 +191,13 @@ jobs:
             echo "---"
             echo "Built from commit ${{ github.sha }}"
             echo
-            echo "| File | Platform |"
-            echo "|------|----------|"
-            echo "| \`*-x86_64.AppImage\` | Linux x64 |"
-            echo "| \`*-windows-x64.exe\` | Windows x64 |"
-            echo "| \`*-macos-x64.zip\` | macOS Intel |"
-            echo "| \`*-macos-arm64.zip\` | macOS Apple Silicon |"
+            echo "| File | Platform | Notes |"
+            echo "|------|----------|-------|"
+            echo "| \`*-x86_64.AppImage\` | Linux x64 | Run directly, no install needed |"
+            echo "| \`*-windows-x64-setup.exe\` | Windows x64 | Installer — adds Start Menu entry |"
+            echo "| \`*-windows-x64-portable.exe\` | Windows x64 | Portable — run from anywhere, no install |"
+            echo "| \`*-macos-x64.zip\` | macOS Intel | Unzip and run |"
+            echo "| \`*-macos-arm64.zip\` | macOS Apple Silicon | Unzip and run |"
             echo
             echo "**macOS note:** right-click → Open the first time to bypass Gatekeeper, or run \`xattr -dr com.apple.quarantine PortMasterDesktop\` after unzipping."
           } > "$NOTES_FILE"
@@ -186,6 +213,7 @@ jobs:
           body_path: release-notes.md
           files: |
             PortMasterDesktop-*.AppImage
-            PortMasterDesktop-*.exe
+            PortMasterDesktop-*-windows-x64-setup.exe
+            PortMasterDesktop-*-windows-x64-portable.exe
             PortMasterDesktop-*.zip
           fail_on_unmatched_files: true

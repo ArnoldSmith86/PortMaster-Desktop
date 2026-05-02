@@ -24,7 +24,7 @@ public class PortMasterClient
     // Port detail page
     public const string DetailPageBase = "https://portmaster.games/detail.html?name=";
 
-    private static readonly HttpClient Http = new()
+    private static readonly HttpClient Http = new(new Services.LoggingHttpHandler())
     {
         Timeout = TimeSpan.FromSeconds(60),
         DefaultRequestHeaders = { { "User-Agent", "PortMaster-Desktop/1.0" } }

@@ -92,6 +92,8 @@ public partial class SettingsViewModel : ObservableObject
     public ObservableCollection<StoreAccountItem> Accounts { get; } = [];
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty] private bool _usePortMasterImages;
+    [ObservableProperty] private string _customPortsPath = "";
+    [ObservableProperty] private string _customPortsPathError = "";
 
     public string Version => typeof(SettingsViewModel).Assembly
         .GetName().Version?.ToString(3) ?? "1.0.0";
@@ -108,8 +110,8 @@ public partial class SettingsViewModel : ObservableObject
     {
         // Fast path: persisted settings only — no per-store HTTP calls.
         // The Settings overlay triggers RefreshAccountsAsync separately when opened.
-        var saved = await _cache.LoadJsonAsync<bool>("use_portmaster_images");
-        UsePortMasterImages = saved;
+        UsePortMasterImages = await _cache.LoadJsonAsync<bool>("use_portmaster_images");
+        CustomPortsPath = await _cache.LoadJsonAsync<string>("custom_ports_path") ?? "";
     }
 
     [RelayCommand]
@@ -121,7 +123,24 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     partial void OnUsePortMasterImagesChanged(bool value)
+        => _ = _cache.SaveJsonAsync("use_portmaster_images", value);
+
+    partial void OnCustomPortsPathChanged(string value)
     {
-        _ = _cache.SaveJsonAsync("use_portmaster_images", value);
+        var trimmed = value.Trim();
+        if (!string.IsNullOrEmpty(trimmed))
+        {
+            var normalized = trimmed.TrimEnd('/', '\\');
+            CustomPortsPathError = normalized.EndsWith("ports", StringComparison.OrdinalIgnoreCase)
+                ? ""
+                : "Path must end in /ports (e.g. /media/card/roms/ports)";
+        }
+        else
+        {
+            CustomPortsPathError = "";
+        }
+
+        if (string.IsNullOrEmpty(CustomPortsPathError))
+            _ = _cache.SaveJsonAsync("custom_ports_path", trimmed);
     }
 }

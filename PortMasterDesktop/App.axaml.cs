@@ -28,8 +28,12 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        var logService = new LogService();
+        logService.Initialize();
+
         var services = new ServiceCollection();
 
+        services.AddSingleton(logService);
         services.AddSingleton<CacheService>();
         services.AddSingleton<PortMasterClient>();
         services.AddSingleton<PartitionService>();

@@ -23,6 +23,7 @@ public partial class MainViewModel : ObservableObject
     private IReadOnlyList<GameMatch> _allMatches = [];
     private string _portMasterImagesPath = "";
     private bool _usePortMasterImages = false;
+    private string _customPortsPathOnOpen = "";
 
     [ObservableProperty] private ObservableCollection<GameMatch> _displayedGames = [];
     [ObservableProperty] private GameMatch? _selectedGame;
@@ -79,6 +80,7 @@ public partial class MainViewModel : ObservableObject
 
         IsSettingsOpen = true;
         await SettingsVm.LoadCommand.ExecuteAsync(null);
+        _customPortsPathOnOpen = SettingsVm.CustomPortsPath;
         // Refresh account names in the background — they require HTTP calls
         _ = SettingsVm.RefreshAccountsCommand.ExecuteAsync(null);
     }
@@ -91,6 +93,9 @@ public partial class MainViewModel : ObservableObject
         IsSettingsOpen = false;
         ApplyImageModeSetting();
         OnSettingsClosed?.Invoke();
+        // Re-detect partitions if the custom path changed
+        if ((SettingsVm?.CustomPortsPath ?? "") != _customPortsPathOnOpen)
+            _ = RescanPartitionsAsync();
     }
 
     public void ApplyImageModeSetting()
@@ -102,8 +107,7 @@ public partial class MainViewModel : ObservableObject
         var imagesPath = _portMasterImagesPath;
         if (string.IsNullOrEmpty(imagesPath) && ActivePartition != null)
         {
-            var portMasterDir = Path.Combine(ActivePartition.MountPoint, "roms", "ports", "PortMaster");
-            imagesPath = Path.Combine(portMasterDir, "screenshots");
+            imagesPath = Path.Combine(ActivePartition.PortsPath, "PortMaster", "screenshots");
         }
 
         foreach (var game in _allMatches)

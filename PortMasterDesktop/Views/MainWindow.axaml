@@ -353,6 +353,32 @@
                         </Border>
                     </StackPanel>
 
+                    <!-- Destination -->
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="DESTINATION" FontSize="12" FontWeight="Bold"
+                                   Foreground="#6a6a8a" LetterSpacing="1.5"/>
+                        <Border Background="#1e1e38" CornerRadius="10"
+                                BorderBrush="#2d2d52" BorderThickness="1" Padding="14,12">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Custom ports path" FontSize="14"
+                                           FontWeight="Bold" Foreground="#e8e8f4"/>
+                                <TextBlock Text="Leave empty for auto-detection. Must end in /ports."
+                                           FontSize="12" Foreground="#6a6a8a" TextWrapping="Wrap"/>
+                                <TextBox Text="{Binding SettingsVm.CustomPortsPath}"
+                                         Watermark="/media/sdcard/roms/ports"
+                                         FontSize="13" FontFamily="Courier New,Monospace"
+                                         Background="#12122a" Foreground="#e8e8f4"
+                                         BorderBrush="#2d2d52" BorderThickness="1"
+                                         CornerRadius="6" Padding="10,7"/>
+                                <TextBlock Text="{Binding SettingsVm.CustomPortsPathError}"
+                                           FontSize="12" Foreground="#ff6060"
+                                           IsVisible="{Binding SettingsVm.CustomPortsPathError,
+                                               Converter={x:Static conv:NotEmptyConverter.Instance}}"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
                     <!-- About -->
                     <StackPanel Spacing="8">
                         <TextBlock Text="ABOUT" FontSize="12" FontWeight="Bold"

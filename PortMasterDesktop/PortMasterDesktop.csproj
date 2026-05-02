@@ -3,13 +3,14 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
-    <Version>0.2.1</Version>
+    <Version>0.2.2</Version>
     <RootNamespace>PortMasterDesktop</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationIcon>Resources/AppIcon/portmaster.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -52,9 +53,10 @@
   <ItemGroup>
     <!-- Bundled game file instructions -->
     <EmbeddedResource Include="PortMaster/GameFileInstructions.json" />
-    <!-- App icon (PNG for window icon; SVG is in AppIcon/ for AppImage) -->
+    <!-- App icon (PNG for window icon; ICO for Windows exe; SVG is for AppImage) -->
     <AvaloniaResource Include="Resources/AppIcon/portmaster.png" />
     <AvaloniaResource Include="Resources/AppIcon/portmaster_toolbar.png" />
+    <None Include="Resources/AppIcon/portmaster.ico" />
   </ItemGroup>
 
 </Project>

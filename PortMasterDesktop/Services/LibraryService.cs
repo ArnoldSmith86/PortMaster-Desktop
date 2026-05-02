@@ -11,17 +11,20 @@ public class LibraryService
     private readonly PortMasterClient _portMaster;
     private readonly PartitionService _partitionService;
     private readonly InstallService _installService;
+    private readonly LogService _log;
 
     public LibraryService(
         IEnumerable<IGameStore> stores,
         PortMasterClient portMaster,
         PartitionService partitionService,
-        InstallService installService)
+        InstallService installService,
+        LogService log)
     {
         _stores = stores;
         _portMaster = portMaster;
         _partitionService = partitionService;
         _installService = installService;
+        _log = log;
     }
 
     public async Task<(IReadOnlyList<GameMatch> matches,
@@ -32,11 +35,13 @@ public class LibraryService
             Action<string>? progress = null,
             CancellationToken ct = default)
     {
-        var partitions = _partitionService.Detect();
+        var partitions = await _partitionService.DetectAsync();
         var primaryPartition = partitions.FirstOrDefault();
 
         progress?.Invoke("Loading PortMaster catalog…");
         var ports = await _portMaster.GetPortsAsync(forceRefresh, progress, ct);
+        _log.Section("Library Load");
+        _log.Info($"PortMaster catalog: {ports.Count} ports  (forceRefresh={forceRefresh})");
 
         progress?.Invoke("Loading game libraries…");
         var authStores = new List<IGameStore>();
@@ -45,10 +50,12 @@ public class LibraryService
             try
             {
                 if (forceRefresh) await store.InvalidateLibraryCacheAsync();
-                if (await store.IsAuthenticatedAsync())
-                    authStores.Add(store);
+                var authed = await store.IsAuthenticatedAsync();
+                _log.Info($"Store {store.DisplayName}: authenticated={authed}" +
+                          (store.IsInCooldown ? "  [in cooldown]" : ""));
+                if (authed) authStores.Add(store);
             }
-            catch (Exception ex) { store.RecordError(FormatError(ex)); }
+            catch (Exception ex) { store.RecordError(FormatError(ex)); _log.Error($"Store {store.DisplayName} auth check failed", ex); }
         }
 
         var libraries = await Task.WhenAll(authStores.Select(async s =>
@@ -59,11 +66,13 @@ public class LibraryService
             {
                 var lib = await s.GetLibraryAsync(ct);
                 s.ClearError();
+                _log.Info($"  {s.DisplayName}: {lib.Count} games");
                 return lib;
             }
             catch (Exception ex)
             {
                 s.RecordError(FormatError(ex));
+                _log.Error($"  {s.DisplayName}: library load failed", ex);
                 return (IReadOnlyList<StoreGame>)Array.Empty<StoreGame>();
             }
         }));
@@ -216,6 +225,9 @@ public class LibraryService
                 });
             }
         }
+
+        var withPort = matches.Count(m => m.HasPort && m.HasOwnedGame);
+        _log.Info($"Matching complete: {matches.Count} total, {withPort} with PortMaster port");
 
         return (matches, partitions, storeCounts);
     }

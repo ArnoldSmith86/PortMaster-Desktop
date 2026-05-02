@@ -39,24 +39,25 @@ class Program
         Console.WriteLine("=== PortMaster Desktop CLI Test Mode ===");
         Console.ResetColor();
 
+        LogService.Instance.Initialize();
         var cache = new CacheService();
 
         // ── Partition detection ───────────────────────────────────────────────
         if (all || args.Contains("--partition"))
         {
             Console.WriteLine("\n[Partitions]");
-            var partSvc = new PartitionService();
-            var parts = partSvc.Detect();
+            var partSvc = new PartitionService(cache, LogService.Instance);
+            var parts = await partSvc.DetectAsync();
             if (parts.Count == 0)
             {
-                Warn("  No partition with roms/ports/ found.");
+                Warn("  No partition with roms/ports/ or ports/PortMaster found.");
             }
             else
             {
                 foreach (var p in parts)
                 {
                     var writeStatus = p.CanWrite ? "writable" : "⚠ no write permission";
-                    Ok($"  {p.MountPoint}  ({p.FreeSpace} free / {p.TotalSpace} total)  fs={p.FileSystem}  {writeStatus}");
+                    Ok($"  {p.PortsPath}  ({p.FreeSpace} free / {p.TotalSpace} total)  fs={p.FileSystem}  {writeStatus}");
                 }
             }
         }
@@ -337,10 +338,10 @@ class Program
         {
             Console.WriteLine("\n[Full Library Match (all authenticated stores)]");
             var pm = new PortMasterClient(cache);
-            var partSvc = new PartitionService();
+            var partSvc = new PartitionService(cache, LogService.Instance);
             var stores = new List<IGameStore> { new LocalSteamStore(cache), new GogStore(cache) };
             var installSvc = new InstallService(pm);
-            var libSvc = new LibraryService(stores, pm, partSvc, installSvc);
+            var libSvc = new LibraryService(stores, pm, partSvc, installSvc, LogService.Instance);
             Action<string> progress = msg => Console.Write($"\r  {msg,-60}");
             var (matches, partitions, storeCounts) = await libSvc.LoadAsync(forceRefresh, progress);
             Console.WriteLine();
@@ -496,8 +497,8 @@ class Program
             Ok($"  Port: {port.Attr.Title}  ({port.Size / 1048576.0:F1} MB)");
 
             // 2. Partition
-            var partSvc = new PartitionService();
-            var partitions = partSvc.Detect();
+            var partSvc = new PartitionService(cache, LogService.Instance);
+            var partitions = await partSvc.DetectAsync();
             if (partitions.Count == 0) { Warn("  No SD card / PortMaster partition detected. Plug in SD card."); goto installTestDone; }
             var partition = partitions[0];
             Ok($"  Partition: {partition.DisplayName}  ({partition.FreeSpace} free)");
@@ -868,8 +869,8 @@ class Program
             Console.WriteLine($"\n  Testing tile width calculation:");
             var pmImagesSvc = new PortMasterImagesService(cache);
             var pm2 = new PortMasterClient(cache);
-            var partSvc = new PartitionService();
-            var libSvc = new LibraryService([], pm2, partSvc, new InstallService(pm2));
+            var partSvc = new PartitionService(cache, LogService.Instance);
+            var libSvc = new LibraryService([], pm2, partSvc, new InstallService(pm2), LogService.Instance);
             var vm = new MainViewModel(libSvc, new InstallService(pm2), new SteamGridDbService(cache), pmImagesSvc);
             vm.SettingsVm = new SettingsViewModel([], cache);
 
@@ -957,6 +958,8 @@ class Program
 
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("\n=== Done ===");
+        if (LogService.Instance.LogFilePath != null)
+            Console.WriteLine($"Log: {LogService.Instance.LogFilePath}");
         Console.ResetColor();
     }
 

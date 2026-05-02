@@ -1,10 +1,11 @@
 namespace PortMasterDesktop.Models;
 
-/// <summary>A mounted volume that contains a roms/ports/ directory.</summary>
+/// <summary>A mounted volume that contains a ports directory (roms/ports or ports/).</summary>
 public class PartitionInfo
 {
     public string MountPoint { get; set; } = "";
-    public string PortsPath => Path.Combine(MountPoint, "roms", "ports");
+    // Set by PartitionService to the actual ports directory found (roms/ports or ports/).
+    public string PortsPath { get; set; } = "";
     public long FreeBytes { get; set; }
     public long TotalBytes { get; set; }
     public string Label { get; set; } = "";
